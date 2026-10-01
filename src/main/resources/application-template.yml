@@ -1,5 +1,14 @@
+# ============================================================
+# 配置模板（安全版）—— 可提交 GitHub
+# 使用方法：
+#   1. 将本文件复制为 application-8081.yaml / application-8082.yaml / application-8083.yaml
+#      （或根据实际端口命名）
+#   2. 填入你自己的数据库密码 / API Key / 上传路径
+#   3. 真实配置文件（application-*.yaml）已被 .gitignore 忽略，不会上传 GitHub
+# ============================================================
+
 server:
-  port: 8082  # web服务端口
+  port: 8081  # web服务端口（8082/8083 模板改这里）
   tomcat:
     connection-timeout: 60s
 
@@ -16,7 +25,7 @@ spring:
     url: jdbc:mysql://localhost:3306/mes_elevn?serverTimezone=Asia/Shanghai&characterEncoding=utf8
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
-    password: root
+    password: ${MYSQL_PASSWORD}   # 你的 MySQL 密码（建议用环境变量，勿明文提交）
   ai:
     chat:
       memory:
@@ -25,7 +34,7 @@ spring:
             initialize-schema: always # 每次启动都会重新创建数据表
     # deepseek/其他LLM的配置
     openai:
-      api-key: ${DEEPSEEK_API_KEY}
+      api-key: ${DEEPSEEK_API_KEY}   # 环境变量，勿明文提交
       # 官方提供的url
       base-url: https://api.deepseek.com
       chat:
@@ -60,8 +69,8 @@ pagehelper:
   helper-dialect: mysql # 分页插件的方言配置
 
 
-# 上传文件的保存位置
-uploadPath: D:\\Program-idea\\mes-program\\upload\\
+# 上传文件的保存位置（改为你自己的本地路径）
+uploadPath: /your/local/upload/path/
 # 图片服务器的默认地址
 imageServerBaseUrl: http://localhost:9898/
 
