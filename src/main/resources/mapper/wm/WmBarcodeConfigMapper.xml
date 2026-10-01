@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 条码规则配置 Mapper XML -->
+<mapper namespace="com.elevn.mes.wm.mapper.WmBarcodeConfigMapper">
+
+    <sql id="Base_Column_List">
+        config_id, barcode_format, barcode_type, content_format, content_example,
+        auto_gen_flag, default_template, enable_flag, del_flag, remark
+    </sql>
+
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmBarcodeConfig"
+            resultType="com.elevn.mes.wm.entity.WmBarcodeConfig">
+        select <include refid="Base_Column_List"/>
+        from wm_barcode_config
+        <where>
+            del_flag = '0'
+            <if test="barcodeType != null and barcodeType != ''">and barcode_type = #{barcodeType}</if>
+            <if test="barcodeFormat != null and barcodeFormat != ''">and barcode_format = #{barcodeFormat}</if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+        </where>
+        order by config_id
+    </select>
+
+    <select id="selectById" resultType="com.elevn.mes.wm.entity.WmBarcodeConfig">
+        select <include refid="Base_Column_List"/>
+        from wm_barcode_config
+        where config_id = #{configId} and del_flag = '0'
+    </select>
+
+    <select id="selectEnabledByType" resultType="com.elevn.mes.wm.entity.WmBarcodeConfig">
+        select <include refid="Base_Column_List"/>
+        from wm_barcode_config
+        where barcode_type = #{barcodeType} and enable_flag = 'Y' and del_flag = '0'
+        limit 1
+    </select>
+
+    <select id="countEnabledByType" resultType="int">
+        select count(*) from wm_barcode_config
+        where barcode_type = #{barcodeType} and enable_flag = 'Y' and del_flag = '0'
+        <if test="excludeId != null">and config_id != #{excludeId}</if>
+    </select>
+
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmBarcodeConfig"
+            useGeneratedKeys="true" keyProperty="configId">
+        insert into wm_barcode_config
+            (barcode_format, barcode_type, content_format, content_example,
+             auto_gen_flag, default_template, enable_flag, del_flag, remark)
+        values
+            (#{barcodeFormat}, #{barcodeType}, #{contentFormat}, #{contentExample},
+             ifnull(#{autoGenFlag}, 'N'), #{defaultTemplate},
+             ifnull(#{enableFlag}, 'Y'), '0', #{remark})
+    </insert>
+
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmBarcodeConfig">
+        update wm_barcode_config
+        set barcode_format = #{barcodeFormat},
+            barcode_type = #{barcodeType},
+            content_format = #{contentFormat},
+            content_example = #{contentExample},
+            auto_gen_flag = #{autoGenFlag},
+            default_template = #{defaultTemplate},
+            enable_flag = #{enableFlag},
+            remark = #{remark}
+        where config_id = #{configId} and del_flag = '0'
+    </update>
+
+    <update id="deleteById">
+        update wm_barcode_config
+        set del_flag = '1', enable_flag = 'N'
+        where config_id = #{configId}
+    </update>
+
+</mapper>

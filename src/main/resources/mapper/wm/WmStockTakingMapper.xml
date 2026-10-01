@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 盘点单 Mapper XML -->
+<mapper namespace="com.elevn.mes.wm.mapper.WmStockTakingMapper">
+
+    <sql id="Base_Column_List">
+        taking_id, taking_code, taking_name, taking_date, taking_type,
+        user_id, user_name, nick_name, blind_flag, frozen_flag,
+        plan_id, plan_code, plan_name, start_time, end_time,
+        status, del_flag, remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmStockTaking"
+            resultType="com.elevn.mes.wm.entity.WmStockTaking">
+        select
+            t.*,
+            (select count(*) from wm_stock_taking_line l
+              where l.taking_id = t.taking_id and l.del_flag = '0') as line_count,
+            (select count(*) from wm_stock_taking_line l
+              where l.taking_id = t.taking_id and l.del_flag = '0'
+                and l.taking_status = 'CONFIRMED') as counted_count,
+            (select count(*) from wm_stock_taking_line l
+              where l.taking_id = t.taking_id and l.del_flag = '0'
+                and l.diff_quantity is not null and l.diff_quantity != 0) as diff_count,
+            (select ifnull(sum(l.diff_quantity), 0) from wm_stock_taking_line l
+              where l.taking_id = t.taking_id and l.del_flag = '0'
+                and l.diff_quantity &gt; 0) as profit_quantity,
+            (select ifnull(sum(l.diff_quantity), 0) from wm_stock_taking_line l
+              where l.taking_id = t.taking_id and l.del_flag = '0'
+                and l.diff_quantity &lt; 0) as loss_quantity
+        from (
+            select <include refid="Base_Column_List"/>
+            from wm_stock_taking
+            <where>
+                del_flag = '0'
+                <if test="takingCode != null and takingCode != ''">
+                    and taking_code like concat('%', #{takingCode}, '%')
+                </if>
+                <if test="takingName != null and takingName != ''">
+                    and taking_name like concat('%', #{takingName}, '%')
+                </if>
+                <if test="planId != null">and plan_id = #{planId}</if>
+                <if test="status != null and status != ''">and status = #{status}</if>
+                <if test="takingDateStart != null">
+                    <![CDATA[ and taking_date >= #{takingDateStart} ]]>
+                </if>
+                <if test="takingDateEnd != null">
+                    <![CDATA[ and taking_date <= #{takingDateEnd} ]]>
+                </if>
+            </where>
+            order by taking_id desc
+        ) t
+    </select>
+
+    <select id="selectById" resultType="com.elevn.mes.wm.entity.WmStockTaking">
+        select <include refid="Base_Column_List"/>
+        from wm_stock_taking
+        where taking_id = #{takingId} and del_flag = '0'
+    </select>
+
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmStockTaking"
+            useGeneratedKeys="true" keyProperty="takingId">
+        insert into wm_stock_taking
+            (taking_code, taking_name, taking_date, taking_type,
+             user_id, user_name, nick_name, blind_flag, frozen_flag,
+             plan_id, plan_code, plan_name, start_time, end_time,
+             status, del_flag, remark, create_by, create_time, update_by, update_time)
+        values
+            (#{takingCode}, #{takingName}, #{takingDate}, #{takingType},
+             #{userId}, #{userName}, #{nickName},
+             ifnull(#{blindFlag}, 'N'), ifnull(#{frozenFlag}, 'N'),
+             #{planId}, #{planCode}, #{planName}, #{startTime}, #{endTime},
+             'PREPARE', '0', #{remark}, #{createBy}, now(), #{updateBy}, now())
+    </insert>
+
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmStockTaking">
+        update wm_stock_taking
+        set taking_name = #{takingName},
+            user_id = #{userId},
+            user_name = #{userName},
+            nick_name = #{nickName},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = now()
+        where taking_id = #{takingId}
+          and status = 'PREPARE'
+          and del_flag = '0'
+    </update>
+
+    <update id="updateStatus">
+        update wm_stock_taking
+        set status = #{toStatus}, update_time = now()
+        where taking_id = #{takingId} and status = #{fromStatus} and del_flag = '0'
+    </update>
+
+    <update id="deleteById">
+        update wm_stock_taking
+        set del_flag = '1', update_time = now()
+        where taking_id = #{takingId} and status = 'PREPARE'
+    </update>
+
+</mapper>

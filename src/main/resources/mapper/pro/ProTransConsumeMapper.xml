@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    物料消耗记录（报工总线的"生成消耗"那一半）
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag。
+          列表查询联表补出 任务号/工单号/工序名/工作站名 等展示字段，
+          这些是非表字段，靠 map-underscore-to-camel-case 自动映射，
+          为了保险仍在本文件里显式声明了 result。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProTransConsumeMapper">
+
+    <!-- pro_trans_consume 表字段与实体属性的映射 -->
+    <resultMap id="ProTransConsumeResultMap" type="com.elevn.mes.pro.entity.ProTransConsume">
+        <id column="record_id" property="recordId"/>
+        <result column="trans_order_id" property="transOrderId"/>
+        <result column="trans_order_code" property="transOrderCode"/>
+        <result column="task_id" property="taskId"/>
+        <result column="feedback_id" property="feedbackId"/>
+        <result column="workstation_id" property="workstationId"/>
+        <result column="process_id" property="processId"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="batch_code" property="batchCode"/>
+        <result column="source_doc_table" property="sourceDocTable"/>
+        <result column="source_doc_id" property="sourceDocId"/>
+        <result column="source_doc_code" property="sourceDocCode"/>
+        <result column="source_doc_type" property="sourceDocType"/>
+        <result column="source_line_id" property="sourceLineId"/>
+        <result column="source_batch_code" property="sourceBatchCode"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="quantity_consumed" property="quantityConsumed"/>
+        <result column="consume_date" property="consumeDate"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <!-- 非表字段：列表页联查带出 -->
+        <result column="task_code" property="taskCode"/>
+        <result column="workorder_code" property="workorderCode"/>
+        <result column="process_code" property="processCode"/>
+        <result column="process_name" property="processName"/>
+        <result column="workstation_code" property="workstationCode"/>
+        <result column="workstation_name" property="workstationName"/>
+        <result column="product_name" property="productName"/>
+    </resultMap>
+
+    <!-- 工序用料需求（应耗 / 已耗 / 差额），不是表映射 -->
+    <resultMap id="ProMaterialRequireResultMap" type="com.elevn.mes.pro.entity.ProMaterialRequire">
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="unit_qty" property="unitQty"/>
+        <result column="plan_qty" property="planQty"/>
+        <result column="consumed_qty" property="consumedQty"/>
+        <result column="diff_qty" property="diffQty"/>
+        <result column="over_flag" property="overFlag"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列。
+         列表查询联了 pro_task / pro_workorder / md_workstation，
+         三张表都有 id、del_flag 这类同名公共列，所以主表列必须带 c. 前缀，
+         否则报 1052 Column 'xxx' in field list is ambiguous -->
+    <sql id="Base_Column_List">
+        c.record_id, c.trans_order_id, c.trans_order_code, c.task_id, c.feedback_id,
+        c.workstation_id, c.process_id, c.workorder_id, c.batch_code, c.source_doc_table, c.source_doc_id,
+        c.source_doc_code, c.source_doc_type, c.source_line_id, c.source_batch_code,
+        c.item_id, c.item_code, c.item_name, c.specification, c.unit_of_measure,
+        c.quantity_consumed, c.consume_date, c.del_flag, c.remark,
+        c.create_by, c.create_time, c.update_by, c.update_time
+    </sql>
+
+    <!-- 列表联查的三张维表：只补展示字段，不加 del_flag 过滤，
+         任务/工单后来被删了也要能看到历史消耗记录 -->
+    <sql id="Join_Tables">
+        left join pro_task t on t.task_id = c.task_id
+        left join pro_workorder w on w.workorder_id = c.workorder_id
+        left join md_workstation ws on ws.workstation_id = c.workstation_id
+    </sql>
+
+    <!-- 新增消耗记录：主键由数据库自增生成，回写到实体 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="recordId">
+        insert into pro_trans_consume
+        (trans_order_id, trans_order_code, task_id, feedback_id, workstation_id, process_id, workorder_id,
+         batch_code, source_doc_table, source_doc_id, source_doc_code, source_doc_type,
+         source_line_id, source_batch_code, item_id, item_code, item_name, specification,
+         unit_of_measure, quantity_consumed, consume_date, del_flag, remark,
+         create_by, create_time, update_by, update_time)
+        values
+        (#{transOrderId}, #{transOrderCode}, #{taskId}, #{feedbackId}, #{workstationId}, #{processId}, #{workorderId},
+         #{batchCode}, #{sourceDocTable}, #{sourceDocId}, #{sourceDocCode}, #{sourceDocType},
+         #{sourceLineId}, #{sourceBatchCode}, #{itemId}, #{itemCode}, #{itemName}, #{specification},
+         #{unitOfMeasure}, #{quantityConsumed}, #{consumeDate}, '0', #{remark},
+         #{createBy}, #{createTime}, #{updateBy}, #{updateTime})
+    </insert>
+
+    <!-- 按主键查询（不联表，报工/冲销等内部逻辑用） -->
+    <select id="selectById" resultMap="ProTransConsumeResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_trans_consume c
+        <where>
+            c.del_flag = '0'
+            and c.record_id = #{recordId}
+        </where>
+    </select>
+
+    <!-- 多条件查询：列表页用，联表补出任务号/工单号/工序名/工作站名 -->
+    <select id="selectByCondition" resultMap="ProTransConsumeResultMap">
+        select
+        <include refid="Base_Column_List"/>,
+        t.task_code, t.process_code, t.process_name,
+        w.workorder_code, w.product_name,
+        ws.workstation_code, ws.workstation_name
+        from pro_trans_consume c
+        <include refid="Join_Tables"/>
+        <where>
+            c.del_flag = '0'
+            <if test="taskId != null">
+                and c.task_id = #{taskId}
+            </if>
+            <if test="workorderId != null">
+                and c.workorder_id = #{workorderId}
+            </if>
+            <if test="processId != null">
+                and c.process_id = #{processId}
+            </if>
+            <if test="workstationId != null">
+                and c.workstation_id = #{workstationId}
+            </if>
+            <if test="itemId != null">
+                and c.item_id = #{itemId}
+            </if>
+            <if test="itemCode != null and itemCode != ''">
+                and c.item_code like concat('%', #{itemCode}, '%')
+            </if>
+            <if test="itemName != null and itemName != ''">
+                and c.item_name like concat('%', #{itemName}, '%')
+            </if>
+            <if test="transOrderCode != null and transOrderCode != ''">
+                and c.trans_order_code like concat('%', #{transOrderCode}, '%')
+            </if>
+            <if test="batchCode != null and batchCode != ''">
+                and c.batch_code like concat('%', #{batchCode}, '%')
+            </if>
+            <if test="workorderCode != null and workorderCode != ''">
+                and w.workorder_code like concat('%', #{workorderCode}, '%')
+            </if>
+            <if test="taskCode != null and taskCode != ''">
+                and t.task_code like concat('%', #{taskCode}, '%')
+            </if>
+            <if test="consumeDateFrom != null">
+                and c.consume_date &gt;= #{consumeDateFrom}
+            </if>
+            <if test="consumeDateTo != null">
+                and c.consume_date &lt;= #{consumeDateTo}
+            </if>
+        </where>
+        order by c.record_id desc
+    </select>
+
+    <!-- 按任务查消耗明细 -->
+    <select id="selectByTaskId" resultMap="ProTransConsumeResultMap">
+        select
+        <include refid="Base_Column_List"/>,
+        t.task_code, t.process_code, t.process_name,
+        w.workorder_code, w.product_name,
+        ws.workstation_code, ws.workstation_name
+        from pro_trans_consume c
+        <include refid="Join_Tables"/>
+        <where>
+            c.del_flag = '0'
+            and c.task_id = #{taskId}
+        </where>
+        order by c.record_id asc
+    </select>
+
+    <!-- 按工单查消耗明细 -->
+    <select id="selectByWorkorderId" resultMap="ProTransConsumeResultMap">
+        select
+        <include refid="Base_Column_List"/>,
+        t.task_code, t.process_code, t.process_name,
+        w.workorder_code, w.product_name,
+        ws.workstation_code, ws.workstation_name
+        from pro_trans_consume c
+        <include refid="Join_Tables"/>
+        <where>
+            c.del_flag = '0'
+            and c.workorder_id = #{workorderId}
+        </where>
+        order by c.task_id asc, c.record_id asc
+    </select>
+
+    <!-- 按工单+物料汇总消耗：工单详情页的"用料汇总"用 -->
+    <select id="sumByWorkorderItem" resultMap="ProTransConsumeResultMap">
+        select
+        c.item_id, c.item_code, c.item_name, c.specification, c.unit_of_measure,
+        sum(c.quantity_consumed) as quantity_consumed
+        from pro_trans_consume c
+        <where>
+            c.del_flag = '0'
+            and c.workorder_id = #{workorderId}
+        </where>
+        group by c.item_id, c.item_code, c.item_name, c.specification, c.unit_of_measure
+        order by c.item_code asc
+    </select>
+
+    <!-- 汇总某任务某物料的累计消耗（报工前算超耗要用） -->
+    <select id="sumConsumedByTaskAndItem" resultType="java.math.BigDecimal">
+        select ifnull(sum(quantity_consumed), 0)
+        from pro_trans_consume
+        where del_flag = '0'
+          and task_id = #{taskId}
+          and item_id = #{itemId}
+    </select>
+
+    <!-- 汇总某任务的累计消耗（全部物料，不分物料） -->
+    <select id="sumConsumedByTaskId" resultType="java.math.BigDecimal">
+        select ifnull(sum(quantity_consumed), 0)
+        from pro_trans_consume
+        where del_flag = '0'
+          and task_id = #{taskId}
+    </select>
+
+    <!-- 工序用料需求：用料清单来自制程BOM，已耗从消耗表汇总，一次查出投入产出比对
+         注意 left join 的子查询必须先按 task_id 过滤，否则会把工单下所有任务的
+         消耗都算到这道工序头上 -->
+    <select id="selectMaterialRequire" resultMap="ProMaterialRequireResultMap">
+        select
+        b.item_id, b.item_code, b.item_name, b.specification,
+        b.unit_of_measure, b.unit_name,
+        b.quantity as unit_qty,
+        round(b.quantity * #{taskQty}, 6) as plan_qty,
+        ifnull(c.consumed_qty, 0) as consumed_qty,
+        round(ifnull(c.consumed_qty, 0) - b.quantity * #{taskQty}, 6) as diff_qty,
+        case when ifnull(c.consumed_qty, 0) &gt; b.quantity * #{taskQty} then 1 else 0 end as over_flag
+        from pro_route_product_bom b
+        left join (
+            select item_id, sum(quantity_consumed) as consumed_qty
+            from pro_trans_consume
+            where del_flag = '0' and task_id = #{taskId}
+            group by item_id
+        ) c on c.item_id = b.item_id
+        <where>
+            b.del_flag = '0'
+            and b.route_id = #{routeId}
+            and b.process_id = #{processId}
+            and b.product_id = #{productId}
+        </where>
+        order by b.item_code asc
+    </select>
+
+    <!-- 工单用料比对：应耗来自工单BOM（下达时展开的预计使用量），实耗来自消耗记录
+         注意 pro_workorder_bom 的规格列叫 item_spc、单位名称列叫 unit_name，
+         与 pro_trans_consume 的 specification 不是同一个列名，别照抄
+
+         两侧取并集（不是单纯 left join 工单BOM）：
+         工单BOM 只展开产品 BOM 的料，工艺补录的辅助用料（钢板、铝型材等
+         挂在制程BOM 上但不在产品 BOM 里的）不会出现在 pro_workorder_bom，
+         若只从工单BOM 出发，这些料"有实耗却没应耗"就被整个吞掉了。
+         并集后它们会以 应耗=0 / 实耗>0 / 超耗 的形式暴露出来。 -->
+    <select id="selectWorkorderMaterialCompare" resultMap="ProMaterialRequireResultMap">
+        select
+        k.item_id,
+        coalesce(b.item_code, c.item_code) as item_code,
+        coalesce(b.item_name, c.item_name) as item_name,
+        coalesce(b.item_spc, c.specification) as specification,
+        coalesce(b.unit_of_measure, c.unit_of_measure) as unit_of_measure,
+        b.unit_name as unit_name,
+        ifnull(b.quantity, 0) as plan_qty,
+        ifnull(c.consumed_qty, 0) as consumed_qty,
+        round(ifnull(c.consumed_qty, 0) - ifnull(b.quantity, 0), 6) as diff_qty,
+        case when ifnull(c.consumed_qty, 0) &gt; ifnull(b.quantity, 0) then 1 else 0 end as over_flag
+        from (
+            select item_id from pro_workorder_bom
+            where del_flag = '0' and workorder_id = #{workorderId}
+            union
+            select item_id from pro_trans_consume
+            where del_flag = '0' and workorder_id = #{workorderId}
+        ) k
+        left join pro_workorder_bom b
+            on b.del_flag = '0' and b.workorder_id = #{workorderId} and b.item_id = k.item_id
+        left join (
+            select item_id, item_code, item_name, specification, unit_of_measure,
+                   sum(quantity_consumed) as consumed_qty
+            from pro_trans_consume
+            where del_flag = '0' and workorder_id = #{workorderId}
+            group by item_id, item_code, item_name, specification, unit_of_measure
+        ) c on c.item_id = k.item_id
+        order by coalesce(b.item_code, c.item_code) asc
+    </select>
+
+    <!-- 按任务删除消耗记录：撤销排产时用物理删除（任务都没了，挂它的消耗也不该留）。
+         消耗是可重算的派生数据（由产出×用量倒推），逻辑删除会堆积 -->
+    <delete id="deleteByTaskId">
+        delete from pro_trans_consume where task_id = #{taskId}
+    </delete>
+
+    <!--
+      按来源报工删除消耗记录（物理删除）：报工冲销时回退用料。
+
+      为什么精准按 feedback_id 删而不是按「任务 + 时间」猜：
+      同一道工序会分批报工，一次报工对应一组消耗，按时间猜必然误杀别人的账。
+
+      为什么物理删而不是写反向记录：
+      倒冲消耗是系统按公式算出来的派生数据，不是真实业务事实（真实事实是报工）。
+      报工一冲销，这批消耗就不该存在。写反向记录会让每处汇总都要记得过滤，
+      账反而更容易错。
+    -->
+    <delete id="deleteByFeedbackId">
+        delete from pro_trans_consume where feedback_id = #{feedbackId}
+    </delete>
+
+    <!-- 按主键逻辑删除：单条误录的消耗记录走这条 -->
+    <update id="deleteById">
+        update pro_trans_consume set del_flag = '1', update_by = #{updateBy}, update_time = now()
+        where record_id = #{recordId}
+    </update>
+
+</mapper>

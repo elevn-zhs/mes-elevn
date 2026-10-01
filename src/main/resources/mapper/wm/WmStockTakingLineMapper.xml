@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 盘点单明细行 Mapper XML：账面数量是生成时的快照，只有 taking_quantity/diff/status 允许更新 -->
+<mapper namespace="com.elevn.mes.wm.mapper.WmStockTakingLineMapper">
+
+    <sql id="Base_Column_List">
+        line_id, taking_id, material_stock_id,
+        item_id, item_code, item_name, specification, unit_of_measure, unit_name,
+        batch_id, batch_code, quantity, taking_quantity, diff_quantity,
+        warehouse_id, warehouse_code, warehouse_name,
+        location_id, location_code, location_name,
+        area_id, area_code, area_name,
+        taking_status, del_flag, remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <select id="selectByTakingId" resultType="com.elevn.mes.wm.entity.WmStockTakingLine">
+        select <include refid="Base_Column_List"/>
+        from wm_stock_taking_line
+        where taking_id = #{takingId} and del_flag = '0'
+        order by item_code, location_code
+    </select>
+
+    <select id="selectById" resultType="com.elevn.mes.wm.entity.WmStockTakingLine">
+        select <include refid="Base_Column_List"/>
+        from wm_stock_taking_line
+        where line_id = #{lineId} and del_flag = '0'
+    </select>
+
+    <select id="countUncounted" resultType="int">
+        select count(*) from wm_stock_taking_line
+        where taking_id = #{takingId} and del_flag = '0' and taking_status = 'PREPARE'
+    </select>
+
+    <select id="selectDiffLines" resultType="com.elevn.mes.wm.entity.WmStockTakingLine">
+        select <include refid="Base_Column_List"/>
+        from wm_stock_taking_line
+        where taking_id = #{takingId} and del_flag = '0'
+          and diff_quantity is not null and diff_quantity != 0
+        order by item_code, location_code
+    </select>
+
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmStockTakingLine"
+            useGeneratedKeys="true" keyProperty="lineId">
+        insert into wm_stock_taking_line
+            (taking_id, material_stock_id,
+             item_id, item_code, item_name, specification, unit_of_measure, unit_name,
+             batch_id, batch_code, quantity,
+             warehouse_id, warehouse_code, warehouse_name,
+             location_id, location_code, location_name,
+             area_id, area_code, area_name,
+             taking_status, del_flag, remark, create_by, create_time, update_by, update_time)
+        values
+            (#{takingId}, #{materialStockId},
+             #{itemId}, #{itemCode}, #{itemName}, #{specification},
+             #{unitOfMeasure}, #{unitName},
+             #{batchId}, #{batchCode}, #{quantity},
+             #{warehouseId}, #{warehouseCode}, #{warehouseName},
+             #{locationId}, #{locationCode}, #{locationName},
+             #{areaId}, #{areaCode}, #{areaName},
+             'PREPARE', '0', #{remark}, #{createBy}, now(), #{updateBy}, now())
+    </insert>
+
+    <!-- 录入实盘数：差异由后端算好传进来，行状态推进为"已录入" -->
+    <update id="updateTaking">
+        update wm_stock_taking_line
+        set taking_quantity = #{takingQuantity},
+            diff_quantity = #{diffQuantity},
+            taking_status = 'CONFIRMED',
+            update_time = now()
+        where line_id = #{lineId}
+          and del_flag = '0'
+          and taking_status = 'PREPARE'
+    </update>
+
+</mapper>

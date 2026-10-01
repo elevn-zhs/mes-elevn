@@ -1,0 +1,76 @@
+server:
+  port: 8081  # web服务端口
+  tomcat:
+    connection-timeout: 60s
+
+# 配置数据源  连接数据库的信息
+spring:
+  servlet:
+    multipart:
+      max-file-size: 5MB  # 单个文件最大 5MB  默认是1MB
+      max-request-size: 20MB  # 一次请求（可能多个文件）最大 20MB
+
+  # 数据源
+  datasource:
+    # 连接数据库的信息，原来MyBatis-config.xml 中的 dataSource
+    url: jdbc:mysql://localhost:3306/mes_elevn?serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: root
+  ai:
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: always # 每次启动都会重新创建数据表
+    # deepseek/其他LLM的配置
+    openai:
+      api-key: ${DEEPSEEK_API_KEY}
+      # 官方提供的url
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          # 配置要使用的模型
+          model: deepseek-v4-pro
+      embedding:
+        enabled: false        # 必须关，DeepSeek 没有 embedding 接口，不关启动就报错
+    # 百炼的配置，对应的DashScopeChatModel
+    dashscope:
+      # API_KEY  读取环境变量中的配置
+      api-key: ${BAILIAN_API_KEY} #${DEEPSEEK_API_KEY} #
+      # 超时时间设置为3分钟
+      read-timeout: 180
+# MyBatis的配置
+mybatis:
+  # 实体类的别名包  原来MyBatis-config.xml 中的 typeAliases - package
+  type-aliases-package: com.elevn.mes.entity
+  # 自动扫描所有的mapepr.xml文件 自动完成mapper.xml注册  原来MyBatis-config.xml 中的 <mappers>
+  mapper-locations: mapper/**/*.xml
+  # setting下的内容
+  configuration:
+    # 原来MyBatis-config.xml 中的 <setting name="mapUnderscoreToCamelCase" value="true"/>
+    map-underscore-to-camel-case: true
+    # 日志
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    lazy-loading-enabled: true
+    aggressive-lazy-loading: false
+
+# 分页插件配置
+pagehelper:
+  helper-dialect: mysql # 分页插件的方言配置
+
+
+# 上传文件的保存位置
+uploadPath: D:\\Program-idea\\mes-program\\upload\\
+# 图片服务器的默认地址
+imageServerBaseUrl: http://localhost:9898/
+
+# 配置对应的日志级别
+logging:
+  level:
+    org.springframework.ai.chat.client.advisor: debug
+    org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor: DEBUG
+    # 增加整个spring ai的debug，看底层模型/工具日志
+    org.springframework.ai: debug
+    # 如果是阿里spring-ai-alibaba，额外加
+    com.alibaba.cloud.ai: debug

@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    出入库单据行（wm_doc_line）
+
+
+    【行 vs 明细】
+      这里的"行"是打算动多少货（物料 + 批次 + 数量 + 建议库位）；
+      过账时按实际库存位置拆出来的落位记录写在 wm_doc_detail 里。
+      一条行可以拆成多条明细，所以行上的库位只是"建议"。
+
+    【updateById 刻意不更新 doc_id / doc_type】
+      把一行搬到别的单子上，来源就断了（流水里记的是 source_doc_line_id），
+      真要挪就删了重加。
+
+    【过账后不再改行】
+      过账时 Service 会把行的物料快照 + 库存定位 ID 回填（updateItemSnapshot /
+      updateMaterialStockId），这是为了留证据；但一旦 status = CONFIRMED，
+      Service 就不会再走 updateById 了。
+-->
+<mapper namespace="com.elevn.mes.wm.mapper.WmDocLineMapper">
+
+    <!-- wm_doc_line 表字段与实体属性的映射 -->
+    <resultMap id="WmDocLineResultMap" type="com.elevn.mes.wm.entity.WmDocLine">
+        <id column="line_id" property="lineId"/>
+        <result column="doc_id" property="docId"/>
+        <result column="doc_type" property="docType"/>
+        <result column="line_no" property="lineNo"/>
+        <result column="source_line_id" property="sourceLineId"/>
+        <result column="material_stock_id" property="materialStockId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="quantity" property="quantity"/>
+        <result column="quantity_actual" property="quantityActual"/>
+        <result column="batch_id" property="batchId"/>
+        <result column="batch_code" property="batchCode"/>
+        <result column="produce_date" property="produceDate"/>
+        <result column="expire_date" property="expireDate"/>
+        <result column="lot_number" property="lotNumber"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="workorder_code" property="workorderCode"/>
+        <result column="workorder_name" property="workorderName"/>
+        <result column="qc_flag" property="qcFlag"/>
+        <result column="qc_id" property="qcId"/>
+        <result column="qc_code" property="qcCode"/>
+        <result column="quality_status" property="qualityStatus"/>
+        <result column="warehouse_id" property="warehouseId"/>
+        <result column="warehouse_code" property="warehouseCode"/>
+        <result column="warehouse_name" property="warehouseName"/>
+        <result column="location_id" property="locationId"/>
+        <result column="location_code" property="locationCode"/>
+        <result column="location_name" property="locationName"/>
+        <result column="area_id" property="areaId"/>
+        <result column="area_code" property="areaCode"/>
+        <result column="area_name" property="areaName"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表 -->
+    <sql id="Base_Column_List">
+        line_id, doc_id, doc_type, line_no, source_line_id, material_stock_id,
+        item_id, item_code, item_name, specification, unit_of_measure, unit_name,
+        quantity, quantity_actual, batch_id, batch_code, produce_date, expire_date, lot_number,
+        workorder_id, workorder_code, workorder_name,
+        qc_flag, qc_id, qc_code, quality_status,
+        warehouse_id, warehouse_code, warehouse_name,
+        location_id, location_code, location_name,
+        area_id, area_code, area_name,
+        del_flag, remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 新增行（主键回填到 lineId） -->
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmDocLine"
+            useGeneratedKeys="true" keyProperty="lineId">
+        insert into wm_doc_line
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="docId != null">doc_id,</if>
+            <if test="docType != null and docType != ''">doc_type,</if>
+            <if test="lineNo != null">line_no,</if>
+            <if test="sourceLineId != null">source_line_id,</if>
+            <if test="materialStockId != null">material_stock_id,</if>
+            <if test="itemId != null">item_id,</if>
+            <if test="itemCode != null and itemCode != ''">item_code,</if>
+            <if test="itemName != null and itemName != ''">item_name,</if>
+            <if test="specification != null and specification != ''">specification,</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">unit_of_measure,</if>
+            <if test="unitName != null and unitName != ''">unit_name,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="quantityActual != null">quantity_actual,</if>
+            <if test="batchId != null">batch_id,</if>
+            <if test="batchCode != null and batchCode != ''">batch_code,</if>
+            <if test="produceDate != null">produce_date,</if>
+            <if test="expireDate != null">expire_date,</if>
+            <if test="lotNumber != null and lotNumber != ''">lot_number,</if>
+            <if test="workorderId != null">workorder_id,</if>
+            <if test="workorderCode != null and workorderCode != ''">workorder_code,</if>
+            <if test="workorderName != null and workorderName != ''">workorder_name,</if>
+            <if test="qcFlag != null and qcFlag != ''">qc_flag,</if>
+            <if test="qcId != null">qc_id,</if>
+            <if test="qcCode != null and qcCode != ''">qc_code,</if>
+            <if test="qualityStatus != null and qualityStatus != ''">quality_status,</if>
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="warehouseCode != null and warehouseCode != ''">warehouse_code,</if>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="locationCode != null and locationCode != ''">location_code,</if>
+            <if test="locationName != null and locationName != ''">location_name,</if>
+            <if test="areaId != null">area_id,</if>
+            <if test="areaCode != null and areaCode != ''">area_code,</if>
+            <if test="areaName != null and areaName != ''">area_name,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="docId != null">#{docId},</if>
+            <if test="docType != null and docType != ''">#{docType},</if>
+            <if test="lineNo != null">#{lineNo},</if>
+            <if test="sourceLineId != null">#{sourceLineId},</if>
+            <if test="materialStockId != null">#{materialStockId},</if>
+            <if test="itemId != null">#{itemId},</if>
+            <if test="itemCode != null and itemCode != ''">#{itemCode},</if>
+            <if test="itemName != null and itemName != ''">#{itemName},</if>
+            <if test="specification != null and specification != ''">#{specification},</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">#{unitOfMeasure},</if>
+            <if test="unitName != null and unitName != ''">#{unitName},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="quantityActual != null">#{quantityActual},</if>
+            <if test="batchId != null">#{batchId},</if>
+            <if test="batchCode != null and batchCode != ''">#{batchCode},</if>
+            <if test="produceDate != null">#{produceDate},</if>
+            <if test="expireDate != null">#{expireDate},</if>
+            <if test="lotNumber != null and lotNumber != ''">#{lotNumber},</if>
+            <if test="workorderId != null">#{workorderId},</if>
+            <if test="workorderCode != null and workorderCode != ''">#{workorderCode},</if>
+            <if test="workorderName != null and workorderName != ''">#{workorderName},</if>
+            <if test="qcFlag != null and qcFlag != ''">#{qcFlag},</if>
+            <if test="qcId != null">#{qcId},</if>
+            <if test="qcCode != null and qcCode != ''">#{qcCode},</if>
+            <if test="qualityStatus != null and qualityStatus != ''">#{qualityStatus},</if>
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="warehouseCode != null and warehouseCode != ''">#{warehouseCode},</if>
+            <if test="warehouseName != null and warehouseName != ''">#{warehouseName},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="locationCode != null and locationCode != ''">#{locationCode},</if>
+            <if test="locationName != null and locationName != ''">#{locationName},</if>
+            <if test="areaId != null">#{areaId},</if>
+            <if test="areaCode != null and areaCode != ''">#{areaCode},</if>
+            <if test="areaName != null and areaName != ''">#{areaName},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改：只更新非 null 字段；doc_id / doc_type 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmDocLine">
+        update wm_doc_line
+        <set>
+            <if test="lineNo != null">line_no = #{lineNo},</if>
+            <if test="sourceLineId != null">source_line_id = #{sourceLineId},</if>
+            <if test="materialStockId != null">material_stock_id = #{materialStockId},</if>
+            <if test="itemId != null">item_id = #{itemId},</if>
+            <if test="itemCode != null">item_code = #{itemCode},</if>
+            <if test="itemName != null">item_name = #{itemName},</if>
+            <if test="specification != null">specification = #{specification},</if>
+            <if test="unitOfMeasure != null">unit_of_measure = #{unitOfMeasure},</if>
+            <if test="unitName != null">unit_name = #{unitName},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="quantityActual != null">quantity_actual = #{quantityActual},</if>
+            <if test="batchId != null">batch_id = #{batchId},</if>
+            <if test="batchCode != null">batch_code = #{batchCode},</if>
+            <if test="produceDate != null">produce_date = #{produceDate},</if>
+            <if test="expireDate != null">expire_date = #{expireDate},</if>
+            <if test="lotNumber != null">lot_number = #{lotNumber},</if>
+            <if test="workorderId != null">workorder_id = #{workorderId},</if>
+            <if test="workorderCode != null">workorder_code = #{workorderCode},</if>
+            <if test="workorderName != null">workorder_name = #{workorderName},</if>
+            <if test="qcFlag != null">qc_flag = #{qcFlag},</if>
+            <if test="qcId != null">qc_id = #{qcId},</if>
+            <if test="qcCode != null">qc_code = #{qcCode},</if>
+            <if test="qualityStatus != null">quality_status = #{qualityStatus},</if>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="warehouseCode != null">warehouse_code = #{warehouseCode},</if>
+            <if test="warehouseName != null">warehouse_name = #{warehouseName},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="locationCode != null">location_code = #{locationCode},</if>
+            <if test="locationName != null">location_name = #{locationName},</if>
+            <if test="areaId != null">area_id = #{areaId},</if>
+            <if test="areaCode != null">area_code = #{areaCode},</if>
+            <if test="areaName != null">area_name = #{areaName},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where line_id = #{lineId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 回填物料快照（过账前统一从 md_item 现查一遍，不信前端传的） -->
+    <update id="updateItemSnapshot" parameterType="com.elevn.mes.wm.entity.WmDocLine">
+        update wm_doc_line
+        set item_code = #{itemCode},
+            item_name = #{itemName},
+            specification = #{specification},
+            unit_of_measure = #{unitOfMeasure},
+            unit_name = #{unitName}
+        where line_id = #{lineId}
+    </update>
+
+    <!-- 回填库存记录ID（入库新建库存行之后 / 出库定位到库存行之后） -->
+    <update id="updateMaterialStockId" parameterType="com.elevn.mes.wm.entity.WmDocLine">
+        update wm_doc_line
+        set material_stock_id = #{materialStockId}
+        where line_id = #{lineId}
+    </update>
+
+    <!-- 根据ID逻辑删除（物理删除在这儿不适用：行是单据的一部分，要留痕） -->
+    <delete id="deleteById">
+        update wm_doc_line set del_flag = '1'
+        where line_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 按单据ID逻辑删除所有行（改单时整批替换用的前半步） -->
+    <update id="deleteByDocId">
+        update wm_doc_line set del_flag = '1'
+        where del_flag = '0'
+          and doc_id = #{docId}
+    </update>
+
+    <!-- 根据ID查询单条 -->
+    <select id="selectById" resultMap="WmDocLineResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_doc_line
+        <where>
+            del_flag = '0'
+            and line_id = #{id}
+        </where>
+    </select>
+
+    <!-- 按单据ID查询行列表（按行号排序） -->
+    <select id="selectByDocId" resultMap="WmDocLineResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_doc_line
+        <where>
+            del_flag = '0'
+            and doc_id = #{docId}
+        </where>
+        order by line_no asc, line_id asc
+    </select>
+
+    <!-- 统计单据下的行数（过账前必须至少有一行） -->
+    <select id="countByDocId" resultType="int">
+        select count(1) from wm_doc_line
+        where del_flag = '0'
+          and doc_id = #{docId}
+    </select>
+
+    <!-- 当前行号最大值（单行新增时接着往下编号；没有行时返回 null） -->
+    <select id="selectMaxLineNo" resultType="java.lang.Integer">
+        select max(line_no) from wm_doc_line
+        where del_flag = '0'
+          and doc_id = #{docId}
+    </select>
+
+</mapper>

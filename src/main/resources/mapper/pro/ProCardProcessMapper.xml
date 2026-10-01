@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    工序流转卡-工序过站记录（pro_card_process）
+
+
+    说明：过站数量的变更只有两个入口 —— addOutputQuantity（本道报工）和
+          addInputQuantity（下一道投料），都用 ifnull 累加保证并发安全。
+          重建过站行走「先物理删除再批量插入」，与任务排产的整批替换同一风格。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProCardProcessMapper">
+
+    <!-- pro_card_process 表字段与实体属性的映射 -->
+    <resultMap id="ProCardProcessResultMap" type="com.elevn.mes.pro.entity.ProCardProcess">
+        <id column="record_id" property="recordId"/>
+        <result column="card_id" property="cardId"/>
+        <result column="card_code" property="cardCode"/>
+        <result column="seq_num" property="seqNum"/>
+        <result column="process_id" property="processId"/>
+        <result column="process_code" property="processCode"/>
+        <result column="process_name" property="processName"/>
+        <result column="input_time" property="inputTime"/>
+        <result column="output_time" property="outputTime"/>
+        <result column="quantity_input" property="quantityInput"/>
+        <result column="quantity_output" property="quantityOutput"/>
+        <result column="quantity_unqualified" property="quantityUnqualified"/>
+        <result column="workstation_id" property="workstationId"/>
+        <result column="workstation_code" property="workstationCode"/>
+        <result column="workstation_name" property="workstationName"/>
+        <result column="user_id" property="userId"/>
+        <result column="user_name" property="userName"/>
+        <result column="nick_name" property="nickName"/>
+        <result column="ipqc_id" property="ipqcId"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        record_id, card_id, card_code, seq_num, process_id,
+        process_code, process_name, input_time, output_time, quantity_input,
+        quantity_output, quantity_unqualified, workstation_id, workstation_code, workstation_name,
+        user_id, user_name, nick_name, ipqc_id, del_flag,
+        remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 批量铺行（排产建卡时一次写入全部工序） -->
+    <insert id="insertBatch">
+        insert into pro_card_process (
+            card_id, card_code, seq_num, process_id, process_code,
+            process_name, quantity_input, quantity_output, quantity_unqualified,
+            workstation_id, workstation_code, workstation_name, user_id,
+            del_flag, remark, create_by, create_time, update_by, update_time
+        ) values
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.cardId}, #{item.cardCode}, #{item.seqNum}, #{item.processId}, #{item.processCode},
+                #{item.processName}, #{item.quantityInput}, #{item.quantityOutput}, #{item.quantityUnqualified},
+                #{item.workstationId}, #{item.workstationCode}, #{item.workstationName}, #{item.userId},
+                '0', #{item.remark}, #{item.createBy}, #{item.createTime}, #{item.updateBy}, #{item.updateTime}
+            )
+        </foreach>
+    </insert>
+
+    <!-- 按卡查全部过站行（按序号排序） -->
+    <select id="selectByCardId" resultMap="ProCardProcessResultMap">
+        select <include refid="Base_Column_List"/>
+        from pro_card_process
+        where card_id = #{cardId} and del_flag = '0'
+        order by seq_num asc
+    </select>
+
+    <!-- 按卡 + 工序精确定位 -->
+    <select id="selectByCardAndProcess" resultMap="ProCardProcessResultMap">
+        select <include refid="Base_Column_List"/>
+        from pro_card_process
+        where card_id = #{cardId} and process_id = #{processId} and del_flag = '0'
+        limit 1
+    </select>
+
+    <!-- 本道报工推进：产出/不良累加 + 出站时间 + 操作工回填 -->
+    <update id="addOutputQuantity">
+        update pro_card_process
+        set quantity_output = ifnull(quantity_output, 0) + #{output},
+            quantity_unqualified = ifnull(quantity_unqualified, 0) + #{unqualified},
+            output_time = #{outputTime},
+            user_id = #{userId},
+            user_name = #{userName},
+            nick_name = #{nickName},
+            update_by = #{updateBy},
+            update_time = #{updateTime}
+        where record_id = #{recordId}
+    </update>
+
+    <!-- 下一道投料：首次进入写 input_time（已有时保留最早进站时间），投入累加 -->
+    <update id="addInputQuantity">
+        update pro_card_process
+        set input_time = ifnull(input_time, #{inputTime}),
+            quantity_input = ifnull(quantity_input, 0) + #{input},
+            update_by = #{updateBy},
+            update_time = #{updateTime}
+        where record_id = #{recordId}
+    </update>
+
+    <!--
+      冲销回退：本道产出减回，减到 0 时清空出站时间。
+
+      注意 SET 子句的书写顺序：MySQL 的 UPDATE 是从左到右求值，后面的表达式会看到
+      前面已更新的值。所以判断 "是否减到 0" 的 output_time 必须写在 quantity_output
+      赋值之前，否则它读到的已经是减完的新值，判断就错了。
+
+      greatest(..., 0) 兜底防止减成负数 —— 真减成负数说明账已经乱了，
+      与其留下负产量，不如停在 0，让人一眼看出这里有问题。
+    -->
+    <update id="subtractOutputQuantity">
+        update pro_card_process
+        set output_time = case when ifnull(quantity_output, 0) &lt;= #{output}
+                               then null else output_time end,
+            quantity_output = greatest(ifnull(quantity_output, 0) - #{output}, 0),
+            quantity_unqualified = greatest(ifnull(quantity_unqualified, 0) - #{unqualified}, 0),
+            update_by = #{updateBy},
+            update_time = #{updateTime}
+        where record_id = #{recordId}
+    </update>
+
+    <!--
+      冲销回退：下一道投入减回，减到 0 说明下一道其实还没开工，
+      进站时间是本次报工带出来的，一并撤回（否则会留下"有进站时间却没投入量"的怪数据）。
+    -->
+    <update id="subtractInputQuantity">
+        update pro_card_process
+        set input_time = case when ifnull(quantity_input, 0) &lt;= #{input}
+                              then null else input_time end,
+            quantity_input = greatest(ifnull(quantity_input, 0) - #{input}, 0),
+            update_by = #{updateBy},
+            update_time = #{updateTime}
+        where record_id = #{recordId}
+    </update>
+
+    <!-- 按卡物理删除 -->
+    <delete id="deleteByCardId">
+        delete from pro_card_process
+        where card_id = #{cardId}
+    </delete>
+</mapper>

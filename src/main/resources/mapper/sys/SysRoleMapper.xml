@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.elevn.mes.sys.mapper.SysRoleMapper">
+
+    <!-- sys_role 表字段与实体属性的映射 -->
+    <resultMap id="SysRoleResultMap" type="com.elevn.mes.sys.entity.SysRole">
+        <id column="role_id" property="roleId"/>
+        <result column="role_name" property="roleName"/>
+        <result column="role_key" property="roleKey"/>
+        <result column="role_sort" property="roleSort"/>
+        <result column="data_scope" property="dataScope"/>
+        <result column="status" property="status"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="remark" property="remark"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        role_id, role_name, role_key, role_sort, data_scope,
+        status, del_flag, create_by, create_time, update_by,
+        update_time, remark
+    </sql>
+
+    <!-- 联表查询用的字段列表（带表别名，防止与其它表列名冲突） -->
+    <sql id="Join_Column_List">
+        r.role_id, r.role_name, r.role_key, r.role_sort, r.data_scope,
+        r.status, r.del_flag, r.create_by, r.create_time, r.update_by,
+        r.update_time, r.remark
+    </sql>
+
+    <!-- 新增角色：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.sys.entity.SysRole" useGeneratedKeys="true" keyProperty="roleId">
+        insert into sys_role
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="roleName != null and roleName != ''">role_name,</if>
+            <if test="roleKey != null and roleKey != ''">role_key,</if>
+            <if test="roleSort != null">role_sort,</if>
+            <if test="dataScope != null and dataScope != ''">data_scope,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="roleName != null and roleName != ''">#{roleName},</if>
+            <if test="roleKey != null and roleKey != ''">#{roleKey},</if>
+            <if test="roleSort != null">#{roleSort},</if>
+            <if test="dataScope != null and dataScope != ''">#{dataScope},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改角色：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.sys.entity.SysRole">
+        update sys_role
+        <set>
+            <if test="roleName != null and roleName != ''">role_name = #{roleName},</if>
+            <if test="roleKey != null and roleKey != ''">role_key = #{roleKey},</if>
+            <if test="roleSort != null">role_sort = #{roleSort},</if>
+            <if test="dataScope != null and dataScope != ''">data_scope = #{dataScope},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+        </set>
+        where role_id = #{roleId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除角色：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update sys_role set del_flag = '1'
+        where role_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 多条件查询角色：条件为空则该字段不参与过滤；始终只查未删除的数据 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.sys.entity.SysRole" resultMap="SysRoleResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_role
+        <where>
+            del_flag = '0'
+            <if test="roleId != null">and role_id = #{roleId}</if>
+            <if test="roleName != null and roleName != ''">and role_name like concat('%', #{roleName}, '%')</if>
+            <if test="roleKey != null and roleKey != ''">and role_key like concat('%', #{roleKey}, '%')</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+            <if test="dataScope != null and dataScope != ''">and data_scope = #{dataScope}</if>
+        </where>
+        order by role_sort asc
+    </select>
+
+    <!-- 根据用户ID查询角色列表：用户角色关联表 左连 角色表 -->
+    <select id="selectRolesByUserId" resultMap="SysRoleResultMap">
+        select
+        <include refid="Join_Column_List"/>
+        from sys_role r
+        inner join sys_user_role ur on ur.role_id = r.role_id and ur.del_flag = '0'
+        <where>
+            r.del_flag = '0'
+            <if test="userId != null">and ur.user_id = #{userId}</if>
+        </where>
+        order by r.role_sort asc
+    </select>
+    <select id="selectById" resultMap="SysRoleResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_role
+        where del_flag = '0'
+        and role_id = #{roleId}
+    </select>
+    <select id="selectByRoleName" resultMap="SysRoleResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_role
+        where del_flag = '0'
+        and role_name = #{roleName}
+    </select>
+    <select id="selectAll" resultMap="SysRoleResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_role
+        where del_flag = '0'
+        </select>
+
+</mapper>

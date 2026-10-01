@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    产品制程
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProRouteProductMapper">
+
+    <!-- pro_route_product 表字段与实体属性的映射 -->
+    <resultMap id="ProRouteProductResultMap" type="com.elevn.mes.pro.entity.ProRouteProduct">
+        <id column="record_id" property="recordId"/>
+        <result column="route_id" property="routeId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="quantity" property="quantity"/>
+        <result column="production_time" property="productionTime"/>
+        <result column="time_unit_type" property="timeUnitType"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        record_id, route_id, item_id, item_code, item_name,
+        specification, unit_of_measure, quantity, production_time, time_unit_type,
+        del_flag, remark, create_by, create_time, update_by,
+        update_time
+    </sql>
+
+    <!-- 新增产品制程：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.pro.entity.ProRouteProduct" useGeneratedKeys="true" keyProperty="recordId">
+        insert into pro_route_product
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="routeId != null">route_id,</if>
+            <if test="itemId != null">item_id,</if>
+            <if test="itemCode != null and itemCode != ''">item_code,</if>
+            <if test="itemName != null and itemName != ''">item_name,</if>
+            <if test="specification != null and specification != ''">specification,</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">unit_of_measure,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="productionTime != null">production_time,</if>
+            <if test="timeUnitType != null and timeUnitType != ''">time_unit_type,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="routeId != null">#{routeId},</if>
+            <if test="itemId != null">#{itemId},</if>
+            <if test="itemCode != null and itemCode != ''">#{itemCode},</if>
+            <if test="itemName != null and itemName != ''">#{itemName},</if>
+            <if test="specification != null and specification != ''">#{specification},</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">#{unitOfMeasure},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="productionTime != null">#{productionTime},</if>
+            <if test="timeUnitType != null and timeUnitType != ''">#{timeUnitType},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改产品制程：只更新非 null 字段 -->
+    <update id="updateById" parameterType="com.elevn.mes.pro.entity.ProRouteProduct">
+        update pro_route_product
+        <set>
+            <if test="routeId != null">route_id = #{routeId},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="productionTime != null">production_time = #{productionTime},</if>
+            <if test="timeUnitType != null and timeUnitType != ''">time_unit_type = #{timeUnitType},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where record_id = #{recordId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除产品制程：逻辑删除 -->
+    <delete id="deleteById">
+        update pro_route_product set del_flag = '1'
+        where record_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 根据ID查询单条 -->
+    <select id="selectById" resultMap="ProRouteProductResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_route_product
+        <where>
+            del_flag = '0'
+            and record_id = #{id}
+        </where>
+    </select>
+
+    <!-- 按产品ID查询全部制程 -->
+    <select id="selectByItemId" resultMap="ProRouteProductResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_route_product
+        <where>
+            del_flag = '0'
+            and item_id = #{itemId}
+        </where>
+        order by record_id asc
+    </select>
+
+    <!-- 查重：同一产品是否已挂同一条路线（修改场景排除自己） -->
+    <select id="countDuplicate" resultType="int">
+        select count(1) from pro_route_product
+        <where>
+            del_flag = '0'
+            and item_id = #{itemId}
+            and route_id = #{routeId}
+            <if test="excludeRecordId != null">and record_id != #{excludeRecordId}</if>
+        </where>
+    </select>
+
+</mapper>

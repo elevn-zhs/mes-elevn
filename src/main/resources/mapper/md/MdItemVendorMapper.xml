@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    物料供应商
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+-->
+<mapper namespace="com.elevn.mes.md.mapper.MdItemVendorMapper">
+
+    <!-- md_item_vendor 表字段与实体属性的映射 -->
+    <resultMap id="MdItemVendorResultMap" type="com.elevn.mes.md.entity.MdItemVendor">
+        <id column="item_vendor_id" property="itemVendorId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="vendor_id" property="vendorId"/>
+        <result column="vendor_code" property="vendorCode"/>
+        <result column="vendor_name" property="vendorName"/>
+        <result column="vendor_item_code" property="vendorItemCode"/>
+        <result column="vendor_item_name" property="vendorItemName"/>
+        <result column="purchase_price" property="purchasePrice"/>
+        <result column="currency" property="currency"/>
+        <result column="min_order_qty" property="minOrderQty"/>
+        <result column="lead_time" property="leadTime"/>
+        <result column="primary_flag" property="primaryFlag"/>
+        <result column="priority" property="priority"/>
+        <result column="effective_date" property="effectiveDate"/>
+        <result column="expire_date" property="expireDate"/>
+        <result column="enable_flag" property="enableFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        item_vendor_id, item_id, item_code, item_name,
+        vendor_id, vendor_code, vendor_name, vendor_item_code,
+        vendor_item_name, purchase_price, currency, min_order_qty,
+        lead_time, primary_flag, priority, effective_date,
+        expire_date, enable_flag, del_flag, remark,
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 新增物料供应商：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.md.entity.MdItemVendor" useGeneratedKeys="true" keyProperty="itemVendorId">
+        insert into md_item_vendor
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="itemVendorId != null">item_vendor_id,</if>
+            <if test="itemId != null">item_id,</if>
+            <if test="itemCode != null and itemCode != ''">item_code,</if>
+            <if test="itemName != null and itemName != ''">item_name,</if>
+            <if test="vendorId != null">vendor_id,</if>
+            <if test="vendorCode != null and vendorCode != ''">vendor_code,</if>
+            <if test="vendorName != null and vendorName != ''">vendor_name,</if>
+            <if test="vendorItemCode != null and vendorItemCode != ''">vendor_item_code,</if>
+            <if test="vendorItemName != null and vendorItemName != ''">vendor_item_name,</if>
+            <if test="purchasePrice != null">purchase_price,</if>
+            <if test="currency != null and currency != ''">currency,</if>
+            <if test="minOrderQty != null">min_order_qty,</if>
+            <if test="leadTime != null">lead_time,</if>
+            <if test="primaryFlag != null and primaryFlag != ''">primary_flag,</if>
+            <if test="priority != null">priority,</if>
+            <if test="effectiveDate != null">effective_date,</if>
+            <if test="expireDate != null">expire_date,</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="itemVendorId != null">#{itemVendorId},</if>
+            <if test="itemId != null">#{itemId},</if>
+            <if test="itemCode != null and itemCode != ''">#{itemCode},</if>
+            <if test="itemName != null and itemName != ''">#{itemName},</if>
+            <if test="vendorId != null">#{vendorId},</if>
+            <if test="vendorCode != null and vendorCode != ''">#{vendorCode},</if>
+            <if test="vendorName != null and vendorName != ''">#{vendorName},</if>
+            <if test="vendorItemCode != null and vendorItemCode != ''">#{vendorItemCode},</if>
+            <if test="vendorItemName != null and vendorItemName != ''">#{vendorItemName},</if>
+            <if test="purchasePrice != null">#{purchasePrice},</if>
+            <if test="currency != null and currency != ''">#{currency},</if>
+            <if test="minOrderQty != null">#{minOrderQty},</if>
+            <if test="leadTime != null">#{leadTime},</if>
+            <if test="primaryFlag != null and primaryFlag != ''">#{primaryFlag},</if>
+            <if test="priority != null">#{priority},</if>
+            <if test="effectiveDate != null">#{effectiveDate},</if>
+            <if test="expireDate != null">#{expireDate},</if>
+            <if test="enableFlag != null and enableFlag != ''">#{enableFlag},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改物料供应商：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.md.entity.MdItemVendor">
+        update md_item_vendor
+        <set>
+            <if test="itemId != null">item_id = #{itemId},</if>
+            <if test="itemCode != null and itemCode != ''">item_code = #{itemCode},</if>
+            <if test="itemName != null and itemName != ''">item_name = #{itemName},</if>
+            <if test="vendorId != null">vendor_id = #{vendorId},</if>
+            <if test="vendorCode != null and vendorCode != ''">vendor_code = #{vendorCode},</if>
+            <if test="vendorName != null and vendorName != ''">vendor_name = #{vendorName},</if>
+            <if test="vendorItemCode != null and vendorItemCode != ''">vendor_item_code = #{vendorItemCode},</if>
+            <if test="vendorItemName != null and vendorItemName != ''">vendor_item_name = #{vendorItemName},</if>
+            <if test="purchasePrice != null">purchase_price = #{purchasePrice},</if>
+            <if test="currency != null and currency != ''">currency = #{currency},</if>
+            <if test="minOrderQty != null">min_order_qty = #{minOrderQty},</if>
+            <if test="leadTime != null">lead_time = #{leadTime},</if>
+            <if test="primaryFlag != null and primaryFlag != ''">primary_flag = #{primaryFlag},</if>
+            <if test="priority != null">priority = #{priority},</if>
+            <if test="effectiveDate != null">effective_date = #{effectiveDate},</if>
+            <if test="expireDate != null">expire_date = #{expireDate},</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag = #{enableFlag},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where item_vendor_id = #{itemVendorId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除物料供应商：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update md_item_vendor set del_flag = '1'
+        where item_vendor_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量删除：同样走逻辑删除，一次把多个 id 的 del_flag 置为 1 -->
+    <update id="deleteBatch">
+        update md_item_vendor set del_flag = '1'
+        where del_flag = '0'
+          and item_vendor_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 多条件查询物料供应商：条件为空则该字段不参与过滤；始终只查未删除的数据
+         编码 / 名称类字段走模糊查询，状态标志、ID 类字段走精确匹配。 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.md.entity.MdItemVendor" resultMap="MdItemVendorResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_item_vendor
+        <where>
+            del_flag = '0'
+            <if test="itemVendorId != null">and item_vendor_id = #{itemVendorId}</if>
+            <if test="itemId != null">and item_id = #{itemId}</if>
+            <if test="itemCode != null and itemCode != ''">and item_code like concat('%', #{itemCode}, '%')</if>
+            <if test="itemName != null and itemName != ''">and item_name like concat('%', #{itemName}, '%')</if>
+            <if test="vendorId != null">and vendor_id = #{vendorId}</if>
+            <if test="vendorCode != null and vendorCode != ''">and vendor_code like concat('%', #{vendorCode}, '%')</if>
+            <if test="vendorName != null and vendorName != ''">and vendor_name like concat('%', #{vendorName}, '%')</if>
+            <if test="vendorItemCode != null and vendorItemCode != ''">and vendor_item_code like concat('%', #{vendorItemCode}, '%')</if>
+            <if test="vendorItemName != null and vendorItemName != ''">and vendor_item_name like concat('%', #{vendorItemName}, '%')</if>
+            <if test="purchasePrice != null">and purchase_price = #{purchasePrice}</if>
+            <if test="currency != null and currency != ''">and currency = #{currency}</if>
+            <if test="minOrderQty != null">and min_order_qty = #{minOrderQty}</if>
+            <if test="leadTime != null">and lead_time = #{leadTime}</if>
+            <if test="primaryFlag != null and primaryFlag != ''">and primary_flag = #{primaryFlag}</if>
+            <if test="priority != null">and priority = #{priority}</if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+            <if test="remark != null and remark != ''">and remark like concat('%', #{remark}, '%')</if>
+        </where>
+        order by item_vendor_id asc
+    </select>
+
+    <!-- 按所属物料ID查询子表列表 -->
+    <select id="selectByItemId" resultMap="MdItemVendorResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_item_vendor
+        <where>
+            del_flag = '0'
+            and item_id = #{itemId}
+        </where>
+        order by priority asc, item_vendor_id asc
+    </select>
+
+    <!-- 根据ID查询单条
+         这里必须包 <where>：MyBatis 的 <where> 会自动处理首个 and 的去留，
+         不包的话 from 后面直接跟条件、没有 where 关键字，MySQL 直接报语法错误。 -->
+    <select id="selectById" resultMap="MdItemVendorResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_item_vendor
+        <where>
+            del_flag = '0'
+            and item_vendor_id = #{id}
+        </where>
+    </select>
+
+    <!-- 按业务唯一键查重
+         唯一约束 uk(item_id, vendor_id)：同一个主物料下不允许出现同一个目标物料。
+         新增时用它查重；修改时在 Service 层比较主键排除自身（这里不加 excludeId 参数，
+         避免 XML 里出现「同一个值两种用法」的歧义）。 -->
+    <select id="selectByUniqueKey" resultMap="MdItemVendorResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_item_vendor
+        <where>
+            del_flag = '0'
+            and item_id = #{itemId}
+            and vendor_id = #{targetId}
+        </where>
+        limit 1
+    </select>
+    <!-- 主供标志清零
+         同一个物料只允许有一个主供应商：把 item_id 下所有 primary_flag='Y' 的记录置为 'N'。
+         excludeId 存在时跳过自己 —— 修改场景下当前这条就是新的主供，不能被清掉。 -->
+    <update id="clearPrimaryFlag">
+        update md_item_vendor set primary_flag = 'N'
+        where del_flag = '0'
+          and item_id = #{itemId}
+          and primary_flag = 'Y'
+        <if test="excludeId != null">and item_vendor_id &lt;&gt; #{excludeId}</if>
+    </update>
+
+</mapper>

@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    工序内容
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProProcessContentMapper">
+
+    <!-- pro_process_content 表字段与实体属性的映射 -->
+    <resultMap id="ProProcessContentResultMap" type="com.elevn.mes.pro.entity.ProProcessContent">
+        <id column="content_id" property="contentId"/>
+        <result column="process_id" property="processId"/>
+        <result column="order_num" property="orderNum"/>
+        <result column="content_text" property="contentText"/>
+        <result column="device" property="device"/>
+        <result column="material" property="material"/>
+        <result column="doc_url" property="docUrl"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        content_id, process_id, order_num, content_text, device,
+        material, doc_url, del_flag, remark, create_by,
+        create_time, update_by, update_time
+    </sql>
+
+    <!-- 新增工序内容：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.pro.entity.ProProcessContent" useGeneratedKeys="true" keyProperty="contentId">
+        insert into pro_process_content
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="processId != null">process_id,</if>
+            <if test="orderNum != null">order_num,</if>
+            <if test="contentText != null and contentText != ''">content_text,</if>
+            <if test="device != null and device != ''">device,</if>
+            <if test="material != null and material != ''">material,</if>
+            <if test="docUrl != null and docUrl != ''">doc_url,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="processId != null">#{processId},</if>
+            <if test="orderNum != null">#{orderNum},</if>
+            <if test="contentText != null and contentText != ''">#{contentText},</if>
+            <if test="device != null and device != ''">#{device},</if>
+            <if test="material != null and material != ''">#{material},</if>
+            <if test="docUrl != null and docUrl != ''">#{docUrl},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改工序内容：只更新非 null 字段 -->
+    <update id="updateById" parameterType="com.elevn.mes.pro.entity.ProProcessContent">
+        update pro_process_content
+        <set>
+            <if test="orderNum != null">order_num = #{orderNum},</if>
+            <if test="contentText != null and contentText != ''">content_text = #{contentText},</if>
+            <if test="device != null">device = #{device},</if>
+            <if test="material != null">material = #{material},</if>
+            <if test="docUrl != null">doc_url = #{docUrl},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where content_id = #{contentId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除工序内容：逻辑删除 -->
+    <delete id="deleteById">
+        update pro_process_content set del_flag = '1'
+        where content_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量删除：同样走逻辑删除 -->
+    <update id="deleteBatch">
+        update pro_process_content set del_flag = '1'
+        where del_flag = '0'
+          and content_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 按工序ID查询全部内容：子表数据量小，不分页；按顺序号升序排 -->
+    <select id="selectByProcessId" resultMap="ProProcessContentResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_process_content
+        <where>
+            del_flag = '0'
+            and process_id = #{processId}
+        </where>
+        order by order_num asc, content_id asc
+    </select>
+
+    <!-- 按工序ID删除全部内容：主表删除时的子表联动清理，同样走逻辑删除 -->
+    <update id="deleteByProcessId">
+        update pro_process_content set del_flag = '1'
+        where del_flag = '0'
+          and process_id = #{processId}
+    </update>
+
+    <!-- 根据ID查询单条 -->
+    <select id="selectById" resultMap="ProProcessContentResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_process_content
+        <where>
+            del_flag = '0'
+            and content_id = #{id}
+        </where>
+    </select>
+
+</mapper>

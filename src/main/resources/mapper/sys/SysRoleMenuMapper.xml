@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.elevn.mes.sys.mapper.SysRoleMenuMapper">
+
+    <!-- sys_role_menu 表字段与实体属性的映射 -->
+    <resultMap id="SysRoleMenuResultMap" type="com.elevn.mes.sys.entity.SysRoleMenu">
+        <id column="id" property="id"/>
+        <result column="role_id" property="roleId"/>
+        <result column="menu_id" property="menuId"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="remark" property="remark"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        id, role_id, menu_id, del_flag, create_by,
+        create_time, update_by, update_time, remark
+    </sql>
+
+    <!-- 新增角色权限关联：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.sys.entity.SysRoleMenu" useGeneratedKeys="true" keyProperty="id">
+        insert into sys_role_menu
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="roleId != null">role_id,</if>
+            <if test="menuId != null">menu_id,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="roleId != null">#{roleId},</if>
+            <if test="menuId != null">#{menuId},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改角色权限关联：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.sys.entity.SysRoleMenu">
+        update sys_role_menu
+        <set>
+            <if test="roleId != null">role_id = #{roleId},</if>
+            <if test="menuId != null">menu_id = #{menuId},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+        </set>
+        where id = #{id}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除角色权限关联：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update sys_role_menu set del_flag = '1'
+        where id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 多条件查询角色权限关联：条件为空则该字段不参与过滤；始终只查未删除的数据 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.sys.entity.SysRoleMenu" resultMap="SysRoleMenuResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_role_menu
+        <where>
+            del_flag = '0'
+            <if test="id != null">and id = #{id}</if>
+            <if test="roleId != null">and role_id = #{roleId}</if>
+            <if test="menuId != null">and menu_id = #{menuId}</if>
+        </where>
+        order by id desc
+    </select>
+
+    <!-- 根据主键ID查询单条关联记录
+         这张表的主键就叫 id（不是 role_menu_id，两张中间表都是这么设计的），
+         字段映射已经在上面的 SysRoleMenuResultMap 里声明过了，直接 refid 复用即可。 -->
+    <select id="selectById" resultMap="SysRoleMenuResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_role_menu
+        <where>
+            del_flag = '0'
+            and id = #{id}
+        </where>
+        limit 1
+    </select>
+
+    <!-- 根据角色ID查询已分配的权限ID -->
+    <select id="selectMenuIdsByRoleId" resultType="java.lang.Long">
+        select menu_id
+        from sys_role_menu
+        <where>
+            del_flag = '0'
+            <if test="roleId != null">and role_id = #{roleId}</if>
+        </where>
+    </select>
+
+    <!-- 清空某个角色的全部授权（逻辑删除 del_flag = '1'） -->
+    <update id="deleteByRoleId">
+        update sys_role_menu set del_flag = '1'
+        <where>
+            del_flag = '0'
+            <if test="roleId != null">and role_id = #{roleId}</if>
+        </where>
+    </update>
+
+</mapper>

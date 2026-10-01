@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    工装夹具类型表
+
+
+    说明：本次只提供选料下拉需要的查询语句。
+          增删改等语句由工装模块（tm 线）的同学按 md 模块的风格自己补。
+-->
+<mapper namespace="com.elevn.mes.tm.mapper.TmToolTypeMapper">
+
+    <!-- tm_tool_type 表字段与实体属性的映射 -->
+    <resultMap id="TmToolTypeResultMap" type="com.elevn.mes.tm.entity.TmToolType">
+        <id column="tool_type_id" property="toolTypeId"/>
+        <result column="tool_type_code" property="toolTypeCode"/>
+        <result column="tool_type_name" property="toolTypeName"/>
+        <result column="code_flag" property="codeFlag"/>
+        <result column="mainten_type" property="maintenType"/>
+        <result column="mainten_period" property="maintenPeriod"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        tool_type_id, tool_type_code, tool_type_name, code_flag,
+        mainten_type, mainten_period,
+        del_flag, remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 多条件查询工装夹具类型：条件为空则该字段不参与过滤；始终只查未删除的数据 -->
+    <select id="selectByCondition" resultMap="TmToolTypeResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from tm_tool_type
+        <where>
+            del_flag = '0'
+            <if test="tmToolType != null">
+                <if test="tmToolType.toolTypeId != null">and tool_type_id = #{tmToolType.toolTypeId}</if>
+                <if test="tmToolType.toolTypeCode != null and tmToolType.toolTypeCode != ''">and tool_type_code like concat('%', #{tmToolType.toolTypeCode}, '%')</if>
+                <if test="tmToolType.toolTypeName != null and tmToolType.toolTypeName != ''">and tool_type_name like concat('%', #{tmToolType.toolTypeName}, '%')</if>
+                <if test="tmToolType.codeFlag != null and tmToolType.codeFlag != ''">and code_flag = #{tmToolType.codeFlag}</if>
+                <if test="tmToolType.maintenType != null and tmToolType.maintenType != ''">and mainten_type = #{tmToolType.maintenType}</if>
+                <if test="tmToolType.remark != null and tmToolType.remark != ''">and remark like concat('%', #{tmToolType.remark}, '%')</if>
+            </if>
+        </where>
+        order by tool_type_id asc
+    </select>
+
+    <!-- 根据ID查询单条
+         这里必须包 <where>：MyBatis 的 <where> 会自动处理首个 and 的去留，
+         不包的话 from 后面直接跟条件、没有 where 关键字，MySQL 直接报语法错误。 -->
+    <select id="selectById" resultMap="TmToolTypeResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from tm_tool_type
+        <where>
+            del_flag = '0'
+            and tool_type_id = #{id}
+        </where>
+    </select>
+
+</mapper>

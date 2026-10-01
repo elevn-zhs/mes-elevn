@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 条码 Mapper XML -->
+<mapper namespace="com.elevn.mes.wm.mapper.WmBarcodeMapper">
+
+    <sql id="Base_Column_List">
+        barcode_id, barcode_format, barcode_type, barcode_content,
+        biz_id, biz_code, biz_name, barcode_url, enable_flag, del_flag, remark
+    </sql>
+
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmBarcode"
+            resultType="com.elevn.mes.wm.entity.WmBarcode">
+        select <include refid="Base_Column_List"/>
+        from wm_barcode
+        <where>
+            del_flag = '0'
+            <if test="barcodeType != null and barcodeType != ''">and barcode_type = #{barcodeType}</if>
+            <if test="barcodeFormat != null and barcodeFormat != ''">and barcode_format = #{barcodeFormat}</if>
+            <if test="bizId != null">and biz_id = #{bizId}</if>
+            <if test="contentKeyword != null and contentKeyword != ''">
+                and barcode_content like concat('%', #{contentKeyword}, '%')
+            </if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+        </where>
+        order by barcode_id desc
+    </select>
+
+    <select id="selectById" resultType="com.elevn.mes.wm.entity.WmBarcode">
+        select <include refid="Base_Column_List"/>
+        from wm_barcode
+        where barcode_id = #{barcodeId} and del_flag = '0'
+    </select>
+
+    <!-- 扫码解析走这里：内容精确匹配，命中即知道"扫的是什么" -->
+    <select id="selectByContent" resultType="com.elevn.mes.wm.entity.WmBarcode">
+        select <include refid="Base_Column_List"/>
+        from wm_barcode
+        where barcode_content = #{barcodeContent} and del_flag = '0'
+        limit 1
+    </select>
+
+    <select id="countByContent" resultType="int">
+        select count(*) from wm_barcode
+        where barcode_content = #{barcodeContent} and del_flag = '0'
+        <if test="excludeId != null">and barcode_id != #{excludeId}</if>
+    </select>
+
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmBarcode"
+            useGeneratedKeys="true" keyProperty="barcodeId">
+        insert into wm_barcode
+            (barcode_format, barcode_type, barcode_content,
+             biz_id, biz_code, biz_name, barcode_url, enable_flag, del_flag, remark)
+        values
+            (#{barcodeFormat}, #{barcodeType}, #{barcodeContent},
+             #{bizId}, #{bizCode}, #{bizName}, #{barcodeUrl},
+             'Y', '0', #{remark})
+    </insert>
+
+    <update id="updateBarcodeUrl">
+        update wm_barcode
+        set barcode_url = #{barcodeUrl}
+        where barcode_id = #{barcodeId} and del_flag = '0'
+    </update>
+
+    <update id="deleteById">
+        update wm_barcode
+        set del_flag = '1', enable_flag = 'N'
+        where barcode_id = #{barcodeId}
+    </update>
+
+</mapper>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 盘点范围 Mapper XML -->
+<mapper namespace="com.elevn.mes.wm.mapper.WmStockTakingScopeMapper">
+
+    <select id="selectByPlanId" resultType="com.elevn.mes.wm.entity.WmStockTakingScope">
+        select scope_id, plan_id, scope_type, scope_value_id, scope_value_code,
+               scope_value_name, del_flag, remark
+        from wm_stock_taking_scope
+        where plan_id = #{planId} and del_flag = '0'
+        order by scope_id
+    </select>
+
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmStockTakingScope"
+            useGeneratedKeys="true" keyProperty="scopeId">
+        insert into wm_stock_taking_scope
+            (plan_id, scope_type, scope_value_id, scope_value_code, scope_value_name,
+             del_flag, remark, create_by, create_time, update_by, update_time)
+        values
+            (#{planId}, #{scopeType}, #{scopeValueId}, #{scopeValueCode}, #{scopeValueName},
+             '0', #{remark}, #{createBy}, now(), #{updateBy}, now())
+    </insert>
+
+    <!-- 物理删除：范围是计划的从属配置，改范围 = 先清空重写（整批替换式，保证幂等） -->
+    <delete id="deleteByPlanId">
+        delete from wm_stock_taking_scope where plan_id = #{planId}
+    </delete>
+
+</mapper>

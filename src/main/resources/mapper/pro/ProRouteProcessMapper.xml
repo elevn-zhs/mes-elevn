@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    工艺路线工序明细
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag。
+          明细的保存走「整批替换」：deleteByRouteId 清旧 + insertBatch 写新。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProRouteProcessMapper">
+
+    <!-- pro_route_process 表字段与实体属性的映射 -->
+    <resultMap id="ProRouteProcessResultMap" type="com.elevn.mes.pro.entity.ProRouteProcess">
+        <id column="record_id" property="recordId"/>
+        <result column="route_id" property="routeId"/>
+        <result column="process_id" property="processId"/>
+        <result column="process_code" property="processCode"/>
+        <result column="process_name" property="processName"/>
+        <result column="order_num" property="orderNum"/>
+        <result column="next_process_id" property="nextProcessId"/>
+        <result column="next_process_code" property="nextProcessCode"/>
+        <result column="next_process_name" property="nextProcessName"/>
+        <result column="link_type" property="linkType"/>
+        <result column="default_pre_time" property="defaultPreTime"/>
+        <result column="default_suf_time" property="defaultSufTime"/>
+        <result column="unit_time" property="unitTime"/>
+        <result column="capacity_per_hour" property="capacityPerHour"/>
+        <result column="color_code" property="colorCode"/>
+        <result column="key_flag" property="keyFlag"/>
+        <result column="is_check" property="isCheck"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        record_id, route_id, process_id, process_code, process_name,
+        order_num, next_process_id, next_process_code, next_process_name, link_type,
+        default_pre_time, default_suf_time, unit_time, capacity_per_hour, color_code, key_flag, is_check,
+        del_flag, remark, create_by, create_time, update_by,
+        update_time
+    </sql>
+
+    <!-- 批量插入路线工序明细：整批替换的写入侧，主键由数据库自增生成 -->
+    <insert id="insertBatch">
+        insert into pro_route_process
+        (route_id, process_id, process_code, process_name, order_num,
+         next_process_id, next_process_code, next_process_name, link_type,
+         default_pre_time, default_suf_time, unit_time, capacity_per_hour, color_code, key_flag, is_check,
+         del_flag, create_by, create_time)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.routeId}, #{item.processId}, #{item.processCode}, #{item.processName}, #{item.orderNum},
+             #{item.nextProcessId}, #{item.nextProcessCode}, #{item.nextProcessName}, #{item.linkType},
+             #{item.defaultPreTime}, #{item.defaultSufTime}, #{item.unitTime}, #{item.capacityPerHour},
+             #{item.colorCode}, #{item.keyFlag}, #{item.isCheck},
+             '0', #{item.createBy}, #{item.createTime})
+        </foreach>
+    </insert>
+
+    <!-- 按路线ID删除全部明细：逻辑删除，整批替换的清理侧 -->
+    <update id="deleteByRouteId">
+        update pro_route_process set del_flag = '1'
+        where del_flag = '0'
+          and route_id = #{routeId}
+    </update>
+
+    <!-- 按路线ID查询全部明细：按顺序号升序 -->
+    <select id="selectByRouteId" resultMap="ProRouteProcessResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_route_process
+        <where>
+            del_flag = '0'
+            and route_id = #{routeId}
+        </where>
+        order by order_num asc, record_id asc
+    </select>
+
+    <!-- 统计某工序被路线明细引用的次数（工序删除检查用） -->
+    <select id="countByProcessId" resultType="int">
+        select count(1) from pro_route_process
+        where del_flag = '0'
+          and process_id = #{processId}
+    </select>
+
+</mapper>

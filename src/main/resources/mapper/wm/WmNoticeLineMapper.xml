@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    仓储通知单行（wm_notice_line）
+
+
+    【一行 = 一种物料要多少】
+      到货通知：这次送来哪些料各多少；发货通知：客户提走哪些成品各多少；
+      备料申请：这个工单要领哪些料各多少。
+
+    【updateById 不更新 notice_id / notice_type】
+      把一行搬到别的通知单上，来源与统计口径全断了。
+
+    【updateQcInfo 留给 C 线】
+      检验单出来之后，把 qc_id / qc_code / 合格数量回填到这里 ——
+      这是"这批料检了没有、检的结果如何"在通知单上唯一的落点。
+-->
+<mapper namespace="com.elevn.mes.wm.mapper.WmNoticeLineMapper">
+
+    <!-- wm_notice_line 表字段与实体属性的映射 -->
+    <resultMap id="WmNoticeLineResultMap" type="com.elevn.mes.wm.entity.WmNoticeLine">
+        <id column="line_id" property="lineId"/>
+        <result column="notice_id" property="noticeId"/>
+        <result column="notice_type" property="noticeType"/>
+        <result column="line_no" property="lineNo"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="quantity" property="quantity"/>
+        <result column="quantity_qualified" property="quantityQualified"/>
+        <result column="batch_id" property="batchId"/>
+        <result column="batch_code" property="batchCode"/>
+        <result column="qc_flag" property="qcFlag"/>
+        <result column="qc_id" property="qcId"/>
+        <result column="qc_code" property="qcCode"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表 -->
+    <sql id="Base_Column_List">
+        line_id, notice_id, notice_type, line_no,
+        item_id, item_code, item_name, specification, unit_of_measure, unit_name,
+        quantity, quantity_qualified, batch_id, batch_code,
+        qc_flag, qc_id, qc_code,
+        del_flag, remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 新增行 -->
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmNoticeLine"
+            useGeneratedKeys="true" keyProperty="lineId">
+        insert into wm_notice_line
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="noticeId != null">notice_id,</if>
+            <if test="noticeType != null and noticeType != ''">notice_type,</if>
+            <if test="lineNo != null">line_no,</if>
+            <if test="itemId != null">item_id,</if>
+            <if test="itemCode != null and itemCode != ''">item_code,</if>
+            <if test="itemName != null and itemName != ''">item_name,</if>
+            <if test="specification != null and specification != ''">specification,</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">unit_of_measure,</if>
+            <if test="unitName != null and unitName != ''">unit_name,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="quantityQualified != null">quantity_qualified,</if>
+            <if test="batchId != null">batch_id,</if>
+            <if test="batchCode != null and batchCode != ''">batch_code,</if>
+            <if test="qcFlag != null and qcFlag != ''">qc_flag,</if>
+            <if test="qcId != null">qc_id,</if>
+            <if test="qcCode != null and qcCode != ''">qc_code,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="noticeId != null">#{noticeId},</if>
+            <if test="noticeType != null and noticeType != ''">#{noticeType},</if>
+            <if test="lineNo != null">#{lineNo},</if>
+            <if test="itemId != null">#{itemId},</if>
+            <if test="itemCode != null and itemCode != ''">#{itemCode},</if>
+            <if test="itemName != null and itemName != ''">#{itemName},</if>
+            <if test="specification != null and specification != ''">#{specification},</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">#{unitOfMeasure},</if>
+            <if test="unitName != null and unitName != ''">#{unitName},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="quantityQualified != null">#{quantityQualified},</if>
+            <if test="batchId != null">#{batchId},</if>
+            <if test="batchCode != null and batchCode != ''">#{batchCode},</if>
+            <if test="qcFlag != null and qcFlag != ''">#{qcFlag},</if>
+            <if test="qcId != null">#{qcId},</if>
+            <if test="qcCode != null and qcCode != ''">#{qcCode},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改：只更新非 null 字段；notice_id / notice_type 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmNoticeLine">
+        update wm_notice_line
+        <set>
+            <if test="lineNo != null">line_no = #{lineNo},</if>
+            <if test="itemId != null">item_id = #{itemId},</if>
+            <if test="itemCode != null">item_code = #{itemCode},</if>
+            <if test="itemName != null">item_name = #{itemName},</if>
+            <if test="specification != null">specification = #{specification},</if>
+            <if test="unitOfMeasure != null">unit_of_measure = #{unitOfMeasure},</if>
+            <if test="unitName != null">unit_name = #{unitName},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="quantityQualified != null">quantity_qualified = #{quantityQualified},</if>
+            <if test="batchId != null">batch_id = #{batchId},</if>
+            <if test="batchCode != null">batch_code = #{batchCode},</if>
+            <if test="qcFlag != null">qc_flag = #{qcFlag},</if>
+            <if test="qcId != null">qc_id = #{qcId},</if>
+            <if test="qcCode != null">qc_code = #{qcCode},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where line_id = #{lineId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 回填检验单信息（C 线的检验单出来之后） -->
+    <update id="updateQcInfo" parameterType="com.elevn.mes.wm.entity.WmNoticeLine">
+        update wm_notice_line
+        set qc_flag = ifnull(#{qcFlag}, qc_flag),
+            qc_id = #{qcId},
+            qc_code = #{qcCode},
+            quantity_qualified = #{quantityQualified},
+            update_time = now()
+        where line_id = #{lineId}
+    </update>
+
+    <!-- 根据ID逻辑删除 -->
+    <delete id="deleteById">
+        update wm_notice_line set del_flag = '1'
+        where line_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 按通知单ID逻辑删除所有行（改单时整批替换） -->
+    <update id="deleteByNoticeId">
+        update wm_notice_line set del_flag = '1'
+        where del_flag = '0'
+          and notice_id = #{noticeId}
+    </update>
+
+    <!-- 根据ID查询单条 -->
+    <select id="selectById" resultMap="WmNoticeLineResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_notice_line
+        <where>
+            del_flag = '0'
+            and line_id = #{id}
+        </where>
+    </select>
+
+    <!-- 按通知单ID查询行列表 -->
+    <select id="selectByNoticeId" resultMap="WmNoticeLineResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_notice_line
+        <where>
+            del_flag = '0'
+            and notice_id = #{noticeId}
+        </where>
+        order by line_no asc, line_id asc
+    </select>
+
+    <!-- 统计通知单下的行数 -->
+    <select id="countByNoticeId" resultType="int">
+        select count(1) from wm_notice_line
+        where del_flag = '0'
+          and notice_id = #{noticeId}
+    </select>
+
+    <!-- 统计已经报检的行数（已经报过检的通知单不允许删） -->
+    <select id="countQcFlaggedByNoticeId" resultType="int">
+        select count(1) from wm_notice_line
+        where del_flag = '0'
+          and notice_id = #{noticeId}
+          and qc_flag = 'Y'
+    </select>
+
+</mapper>

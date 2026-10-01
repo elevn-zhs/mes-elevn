@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    库区 / 库位（wm_location）
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag。
+
+    【口径提醒】
+      location_type = 'AREA'     库区，父级，parent_id = 0
+      location_type = 'LOCATION' 库位，子级，parent_id 指向库区
+      唯一键是 (location_type, location_code) —— 两类各自独立编号
+
+    【updateById 刻意不更新两个字段】
+      location_type：库区改成库位，整棵树的意义就没了
+      parent_id    ：库位换库区，会让库存记录里的 area_id 冗余对不上
+      要换位置就"停用旧的、新建一个"，别在原有记录上改。
+-->
+<mapper namespace="com.elevn.mes.wm.mapper.WmLocationMapper">
+
+    <!-- wm_location 表字段与实体属性的映射 -->
+    <resultMap id="WmLocationResultMap" type="com.elevn.mes.wm.entity.WmLocation">
+        <id column="location_id" property="locationId"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="location_type" property="locationType"/>
+        <result column="location_code" property="locationCode"/>
+        <result column="location_name" property="locationName"/>
+        <result column="warehouse_id" property="warehouseId"/>
+        <result column="warehouse_code" property="warehouseCode"/>
+        <result column="warehouse_name" property="warehouseName"/>
+        <result column="area" property="area"/>
+        <result column="max_loa" property="maxLoa"/>
+        <result column="position_x" property="positionX"/>
+        <result column="position_y" property="positionY"/>
+        <result column="position_z" property="positionZ"/>
+        <result column="area_flag" property="areaFlag"/>
+        <result column="enable_flag" property="enableFlag"/>
+        <result column="frozen_flag" property="frozenFlag"/>
+        <result column="product_mixing" property="productMixing"/>
+        <result column="batch_mixing" property="batchMixing"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 库存记录映射（库位详情里展示"这个库位上放着什么"） -->
+    <resultMap id="StockResultMap" type="com.elevn.mes.wm.entity.WmMaterialStock">
+        <id column="material_stock_id" property="materialStockId"/>
+        <result column="item_type_id" property="itemTypeId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="batch_id" property="batchId"/>
+        <result column="batch_code" property="batchCode"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="workorder_code" property="workorderCode"/>
+        <result column="vendor_id" property="vendorId"/>
+        <result column="vendor_code" property="vendorCode"/>
+        <result column="vendor_name" property="vendorName"/>
+        <result column="vendor_nick" property="vendorNick"/>
+        <result column="client_id" property="clientId"/>
+        <result column="client_code" property="clientCode"/>
+        <result column="client_name" property="clientName"/>
+        <result column="client_nick" property="clientNick"/>
+        <result column="warehouse_id" property="warehouseId"/>
+        <result column="warehouse_code" property="warehouseCode"/>
+        <result column="warehouse_name" property="warehouseName"/>
+        <result column="location_id" property="locationId"/>
+        <result column="location_code" property="locationCode"/>
+        <result column="location_name" property="locationName"/>
+        <result column="area_id" property="areaId"/>
+        <result column="area_code" property="areaCode"/>
+        <result column="area_name" property="areaName"/>
+        <result column="package_id" property="packageId"/>
+        <result column="package_code" property="packageCode"/>
+        <result column="quantity_onhand" property="quantityOnhand"/>
+        <result column="quantity_reserved" property="quantityReserved"/>
+        <result column="production_date" property="productionDate"/>
+        <result column="recpt_date" property="recptDate"/>
+        <result column="expire_date" property="expireDate"/>
+        <result column="frozen_flag" property="frozenFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="quantity_available" property="quantityAvailable"/>
+    </resultMap>
+
+    <!-- 公共字段列表 -->
+    <sql id="Base_Column_List">
+        location_id, parent_id, location_type, location_code, location_name,
+        warehouse_id, warehouse_code, warehouse_name, area, max_loa,
+        position_x, position_y, position_z, area_flag, enable_flag,
+        frozen_flag, product_mixing, batch_mixing, del_flag, remark,
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 库存记录公共字段列表（含算出来的可用数量） -->
+    <sql id="Stock_Column_List">
+        material_stock_id, item_type_id, item_id, item_code, item_name,
+        specification, unit_of_measure, unit_name, batch_id, batch_code,
+        workorder_id, workorder_code, vendor_id, vendor_code, vendor_name, vendor_nick,
+        client_id, client_code, client_name, client_nick,
+        warehouse_id, warehouse_code, warehouse_name,
+        location_id, location_code, location_name,
+        area_id, area_code, area_name, package_id, package_code,
+        quantity_onhand, quantity_reserved,
+        (ifnull(quantity_onhand, 0) - ifnull(quantity_reserved, 0)) as quantity_available,
+        production_date, recpt_date, expire_date, frozen_flag, del_flag, remark,
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 新增库区/库位 -->
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmLocation"
+            useGeneratedKeys="true" keyProperty="locationId">
+        insert into wm_location
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="parentId != null">parent_id,</if>
+            <if test="locationType != null and locationType != ''">location_type,</if>
+            <if test="locationCode != null and locationCode != ''">location_code,</if>
+            <if test="locationName != null and locationName != ''">location_name,</if>
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="warehouseCode != null and warehouseCode != ''">warehouse_code,</if>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name,</if>
+            <if test="area != null">area,</if>
+            <if test="maxLoa != null">max_loa,</if>
+            <if test="positionX != null">position_x,</if>
+            <if test="positionY != null">position_y,</if>
+            <if test="positionZ != null">position_z,</if>
+            <if test="areaFlag != null and areaFlag != ''">area_flag,</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag,</if>
+            <if test="frozenFlag != null and frozenFlag != ''">frozen_flag,</if>
+            <if test="productMixing != null and productMixing != ''">product_mixing,</if>
+            <if test="batchMixing != null and batchMixing != ''">batch_mixing,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="parentId != null">#{parentId},</if>
+            <if test="locationType != null and locationType != ''">#{locationType},</if>
+            <if test="locationCode != null and locationCode != ''">#{locationCode},</if>
+            <if test="locationName != null and locationName != ''">#{locationName},</if>
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="warehouseCode != null and warehouseCode != ''">#{warehouseCode},</if>
+            <if test="warehouseName != null and warehouseName != ''">#{warehouseName},</if>
+            <if test="area != null">#{area},</if>
+            <if test="maxLoa != null">#{maxLoa},</if>
+            <if test="positionX != null">#{positionX},</if>
+            <if test="positionY != null">#{positionY},</if>
+            <if test="positionZ != null">#{positionZ},</if>
+            <if test="areaFlag != null and areaFlag != ''">#{areaFlag},</if>
+            <if test="enableFlag != null and enableFlag != ''">#{enableFlag},</if>
+            <if test="frozenFlag != null and frozenFlag != ''">#{frozenFlag},</if>
+            <if test="productMixing != null and productMixing != ''">#{productMixing},</if>
+            <if test="batchMixing != null and batchMixing != ''">#{batchMixing},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!--
+        根据ID修改：只更新非 null 字段
+        刻意不更新 location_type / parent_id（原因见文件头）、create_by / create_time / del_flag
+    -->
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmLocation">
+        update wm_location
+        <set>
+            <if test="locationCode != null and locationCode != ''">location_code = #{locationCode},</if>
+            <if test="locationName != null and locationName != ''">location_name = #{locationName},</if>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="warehouseCode != null">warehouse_code = #{warehouseCode},</if>
+            <if test="warehouseName != null">warehouse_name = #{warehouseName},</if>
+            <if test="area != null">area = #{area},</if>
+            <if test="maxLoa != null">max_loa = #{maxLoa},</if>
+            <if test="positionX != null">position_x = #{positionX},</if>
+            <if test="positionY != null">position_y = #{positionY},</if>
+            <if test="positionZ != null">position_z = #{positionZ},</if>
+            <if test="areaFlag != null and areaFlag != ''">area_flag = #{areaFlag},</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag = #{enableFlag},</if>
+            <if test="frozenFlag != null and frozenFlag != ''">frozen_flag = #{frozenFlag},</if>
+            <if test="productMixing != null and productMixing != ''">product_mixing = #{productMixing},</if>
+            <if test="batchMixing != null and batchMixing != ''">batch_mixing = #{batchMixing},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where location_id = #{locationId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID逻辑删除 -->
+    <delete id="deleteById">
+        update wm_location set del_flag = '1'
+        where location_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量逻辑删除 -->
+    <update id="deleteBatch">
+        update wm_location set del_flag = '1'
+        where del_flag = '0'
+          and location_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 根据ID查询单条 -->
+    <select id="selectById" resultMap="WmLocationResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_location
+        <where>
+            del_flag = '0'
+            and location_id = #{id}
+        </where>
+    </select>
+
+    <!-- 按「类型 + 编码」查询（唯一键校验用） -->
+    <select id="selectByCodeAndType" resultMap="WmLocationResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_location
+        <where>
+            del_flag = '0'
+            and location_type = #{locationType}
+            and location_code = #{locationCode}
+        </where>
+        limit 1
+    </select>
+
+    <!-- 多条件查询：支持仓库 / 类型 / 编码 / 名称 / 启用状态筛选 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmLocation"
+            resultMap="WmLocationResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_location
+        <where>
+            del_flag = '0'
+            <if test="locationId != null">and location_id = #{locationId}</if>
+            <if test="parentId != null">and parent_id = #{parentId}</if>
+            <if test="warehouseId != null">and warehouse_id = #{warehouseId}</if>
+            <if test="locationType != null and locationType != ''">and location_type = #{locationType}</if>
+            <if test="locationCode != null and locationCode != ''">
+                and location_code like concat('%', #{locationCode}, '%')
+            </if>
+            <if test="locationName != null and locationName != ''">
+                and location_name like concat('%', #{locationName}, '%')
+            </if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+            <if test="frozenFlag != null and frozenFlag != ''">and frozen_flag = #{frozenFlag}</if>
+        </where>
+        order by location_type desc, location_id asc
+    </select>
+
+    <!--
+        查询树形节点：一次把库区和库位都捞出来，由 Service 按 parent_id 组装成两层树。
+        库区排前面（AREA 字典序在 LOCATION 之前），组装时天然先父后子。
+    -->
+    <select id="selectAllForTree" parameterType="com.elevn.mes.wm.entity.WmLocation"
+            resultMap="WmLocationResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_location
+        <where>
+            del_flag = '0'
+            <if test="warehouseId != null">and warehouse_id = #{warehouseId}</if>
+            <if test="locationType != null and locationType != ''">and location_type = #{locationType}</if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+        </where>
+        order by location_type desc, location_id asc
+    </select>
+
+    <!-- 查询某库位当前存放的物料与批次（只看还有在库数量的） -->
+    <select id="selectStockByLocationId" resultMap="StockResultMap">
+        select
+        <include refid="Stock_Column_List"/>
+        from wm_material_stock
+        <where>
+            del_flag = '0'
+            and location_id = #{locationId}
+            and quantity_onhand > 0
+        </where>
+        order by material_stock_id asc
+    </select>
+
+    <!-- 统计子节点数量：库区下面还挂着库位就不允许删除 -->
+    <select id="countChildren" resultType="int">
+        select count(1) from wm_location
+        where del_flag = '0'
+          and parent_id = #{locationId}
+    </select>
+
+    <!-- 统计该库位上的库存记录数 -->
+    <select id="countStockByLocationId" resultType="int">
+        select count(1) from wm_material_stock
+        where del_flag = '0'
+          and location_id = #{locationId}
+          and quantity_onhand > 0
+    </select>
+
+</mapper>

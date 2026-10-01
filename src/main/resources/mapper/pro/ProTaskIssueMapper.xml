@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    生产任务投料（pro_task_issue）
+
+
+    【这张表由仓储侧的过账事务写入】
+      B 线把生产领料单（wm_doc.doc_type = 'ISSUE'）过账时，
+      在同一个事务里把每一行领料翻译成一条投料记录写进来。
+      这样"库存扣了"和"任务领到料了"要么都成，要么都不成。
+
+    【source_doc_id 建表时就是 NOT NULL】
+      投料必须有出处，否则追溯时无法回答"这批料是从哪张领料单出的"。
+
+    【三个数量的恒等式】
+      quantity_available + quantity_used = quantity_issued
+      刚投料时 available = issued，used = 0。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProTaskIssueMapper">
+
+    <!-- pro_task_issue 表字段与实体属性的映射 -->
+    <resultMap id="ProTaskIssueResultMap" type="com.elevn.mes.pro.entity.ProTaskIssue">
+        <id column="record_id" property="recordId"/>
+        <result column="task_id" property="taskId"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="workstation_id" property="workstationId"/>
+        <result column="source_doc_table" property="sourceDocTable"/>
+        <result column="source_doc_id" property="sourceDocId"/>
+        <result column="source_doc_type" property="sourceDocType"/>
+        <result column="source_doc_code" property="sourceDocCode"/>
+        <result column="batch_code" property="batchCode"/>
+        <result column="source_line_id" property="sourceLineId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="quantity_issued" property="quantityIssued"/>
+        <result column="quantity_available" property="quantityAvailable"/>
+        <result column="quantity_used" property="quantityUsed"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表 -->
+    <sql id="Base_Column_List">
+        record_id, task_id, workorder_id, workstation_id,
+        source_doc_table, source_doc_id, source_doc_type, source_doc_code,
+        batch_code, source_line_id,
+        item_id, item_code, item_name, specification, unit_of_measure,
+        quantity_issued, quantity_available, quantity_used,
+        del_flag, remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 新增投料记录 -->
+    <insert id="insert" parameterType="com.elevn.mes.pro.entity.ProTaskIssue"
+            useGeneratedKeys="true" keyProperty="recordId">
+        insert into pro_task_issue
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">task_id,</if>
+            <if test="workorderId != null">workorder_id,</if>
+            <if test="workstationId != null">workstation_id,</if>
+            <if test="sourceDocTable != null and sourceDocTable != ''">source_doc_table,</if>
+            <if test="sourceDocId != null">source_doc_id,</if>
+            <if test="sourceDocType != null and sourceDocType != ''">source_doc_type,</if>
+            <if test="sourceDocCode != null and sourceDocCode != ''">source_doc_code,</if>
+            <if test="batchCode != null and batchCode != ''">batch_code,</if>
+            <if test="sourceLineId != null">source_line_id,</if>
+            <if test="itemId != null">item_id,</if>
+            <if test="itemCode != null and itemCode != ''">item_code,</if>
+            <if test="itemName != null and itemName != ''">item_name,</if>
+            <if test="specification != null and specification != ''">specification,</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">unit_of_measure,</if>
+            <if test="quantityIssued != null">quantity_issued,</if>
+            <if test="quantityAvailable != null">quantity_available,</if>
+            <if test="quantityUsed != null">quantity_used,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">#{taskId},</if>
+            <if test="workorderId != null">#{workorderId},</if>
+            <if test="workstationId != null">#{workstationId},</if>
+            <if test="sourceDocTable != null and sourceDocTable != ''">#{sourceDocTable},</if>
+            <if test="sourceDocId != null">#{sourceDocId},</if>
+            <if test="sourceDocType != null and sourceDocType != ''">#{sourceDocType},</if>
+            <if test="sourceDocCode != null and sourceDocCode != ''">#{sourceDocCode},</if>
+            <if test="batchCode != null and batchCode != ''">#{batchCode},</if>
+            <if test="sourceLineId != null">#{sourceLineId},</if>
+            <if test="itemId != null">#{itemId},</if>
+            <if test="itemCode != null and itemCode != ''">#{itemCode},</if>
+            <if test="itemName != null and itemName != ''">#{itemName},</if>
+            <if test="specification != null and specification != ''">#{specification},</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">#{unitOfMeasure},</if>
+            <if test="quantityIssued != null">#{quantityIssued},</if>
+            <if test="quantityAvailable != null">#{quantityAvailable},</if>
+            <if test="quantityUsed != null">#{quantityUsed},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 按生产任务查询投料记录 -->
+    <select id="selectByTaskId" resultMap="ProTaskIssueResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_task_issue
+        <where>
+            del_flag = '0'
+            and task_id = #{taskId}
+        </where>
+        order by record_id asc
+    </select>
+
+    <!-- 统计某来源单据已产生的投料记录数（防重复过账的兜底校验） -->
+    <select id="countBySourceDocId" resultType="int">
+        select count(1) from pro_task_issue
+        where del_flag = '0'
+          and source_doc_table = #{sourceDocTable}
+          and source_doc_id = #{sourceDocId}
+    </select>
+
+</mapper>

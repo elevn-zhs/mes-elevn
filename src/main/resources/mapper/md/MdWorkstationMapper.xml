@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    工作站
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+-->
+<mapper namespace="com.elevn.mes.md.mapper.MdWorkstationMapper">
+
+    <!-- md_workstation 表字段与实体属性的映射 -->
+    <resultMap id="MdWorkstationResultMap" type="com.elevn.mes.md.entity.MdWorkstation">
+        <id column="workstation_id" property="workstationId"/>
+        <result column="workstation_code" property="workstationCode"/>
+        <result column="workstation_name" property="workstationName"/>
+        <result column="workstation_address" property="workstationAddress"/>
+        <result column="workshop_id" property="workshopId"/>
+        <result column="workshop_code" property="workshopCode"/>
+        <result column="workshop_name" property="workshopName"/>
+        <result column="process_id" property="processId"/>
+        <result column="process_code" property="processCode"/>
+        <result column="process_name" property="processName"/>
+        <result column="warehouse_id" property="warehouseId"/>
+        <result column="warehouse_code" property="warehouseCode"/>
+        <result column="warehouse_name" property="warehouseName"/>
+        <result column="area_id" property="areaId"/>
+        <result column="area_code" property="areaCode"/>
+        <result column="area_name" property="areaName"/>
+        <result column="location_id" property="locationId"/>
+        <result column="location_code" property="locationCode"/>
+        <result column="location_name" property="locationName"/>
+        <result column="enable_flag" property="enableFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        workstation_id, workstation_code, workstation_name, workstation_address, workshop_id,
+        workshop_code, workshop_name, process_id, process_code, process_name,
+        warehouse_id, warehouse_code, warehouse_name, area_id, area_code,
+        area_name, location_id, location_code, location_name, enable_flag,
+        del_flag, remark, create_by, create_time, update_by,
+        update_time
+    </sql>
+
+    <!-- 新增工作站：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.md.entity.MdWorkstation" useGeneratedKeys="true" keyProperty="workstationId">
+        insert into md_workstation
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="workstationCode != null and workstationCode != ''">workstation_code,</if>
+            <if test="workstationName != null and workstationName != ''">workstation_name,</if>
+            <if test="workstationAddress != null and workstationAddress != ''">workstation_address,</if>
+            <if test="workshopId != null">workshop_id,</if>
+            <if test="workshopCode != null and workshopCode != ''">workshop_code,</if>
+            <if test="workshopName != null and workshopName != ''">workshop_name,</if>
+            <if test="processId != null">process_id,</if>
+            <if test="processCode != null and processCode != ''">process_code,</if>
+            <if test="processName != null and processName != ''">process_name,</if>
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="warehouseCode != null and warehouseCode != ''">warehouse_code,</if>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name,</if>
+            <if test="areaId != null">area_id,</if>
+            <if test="areaCode != null and areaCode != ''">area_code,</if>
+            <if test="areaName != null and areaName != ''">area_name,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="locationCode != null and locationCode != ''">location_code,</if>
+            <if test="locationName != null and locationName != ''">location_name,</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="workstationCode != null and workstationCode != ''">#{workstationCode},</if>
+            <if test="workstationName != null and workstationName != ''">#{workstationName},</if>
+            <if test="workstationAddress != null and workstationAddress != ''">#{workstationAddress},</if>
+            <if test="workshopId != null">#{workshopId},</if>
+            <if test="workshopCode != null and workshopCode != ''">#{workshopCode},</if>
+            <if test="workshopName != null and workshopName != ''">#{workshopName},</if>
+            <if test="processId != null">#{processId},</if>
+            <if test="processCode != null and processCode != ''">#{processCode},</if>
+            <if test="processName != null and processName != ''">#{processName},</if>
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="warehouseCode != null and warehouseCode != ''">#{warehouseCode},</if>
+            <if test="warehouseName != null and warehouseName != ''">#{warehouseName},</if>
+            <if test="areaId != null">#{areaId},</if>
+            <if test="areaCode != null and areaCode != ''">#{areaCode},</if>
+            <if test="areaName != null and areaName != ''">#{areaName},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="locationCode != null and locationCode != ''">#{locationCode},</if>
+            <if test="locationName != null and locationName != ''">#{locationName},</if>
+            <if test="enableFlag != null and enableFlag != ''">#{enableFlag},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改工作站：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.md.entity.MdWorkstation">
+        update md_workstation
+        <set>
+            <if test="workstationCode != null and workstationCode != ''">workstation_code = #{workstationCode},</if>
+            <if test="workstationName != null and workstationName != ''">workstation_name = #{workstationName},</if>
+            <if test="workstationAddress != null and workstationAddress != ''">workstation_address = #{workstationAddress},</if>
+            <if test="workshopId != null">workshop_id = #{workshopId},</if>
+            <if test="workshopCode != null and workshopCode != ''">workshop_code = #{workshopCode},</if>
+            <if test="workshopName != null and workshopName != ''">workshop_name = #{workshopName},</if>
+            <if test="processId != null">process_id = #{processId},</if>
+            <if test="processCode != null and processCode != ''">process_code = #{processCode},</if>
+            <if test="processName != null and processName != ''">process_name = #{processName},</if>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="warehouseCode != null and warehouseCode != ''">warehouse_code = #{warehouseCode},</if>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name = #{warehouseName},</if>
+            <if test="areaId != null">area_id = #{areaId},</if>
+            <if test="areaCode != null and areaCode != ''">area_code = #{areaCode},</if>
+            <if test="areaName != null and areaName != ''">area_name = #{areaName},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="locationCode != null and locationCode != ''">location_code = #{locationCode},</if>
+            <if test="locationName != null and locationName != ''">location_name = #{locationName},</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag = #{enableFlag},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where workstation_id = #{workstationId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除工作站：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update md_workstation set del_flag = '1'
+        where workstation_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量删除：同样走逻辑删除，一次把多个 id 的 del_flag 置为 1 -->
+    <update id="deleteBatch">
+        update md_workstation set del_flag = '1'
+        where del_flag = '0'
+          and workstation_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 多条件查询工作站：条件为空则该字段不参与过滤；始终只查未删除的数据
+         编码 / 名称类字段走模糊查询，状态标志、ID 类字段走精确匹配。 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.md.entity.MdWorkstation" resultMap="MdWorkstationResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_workstation
+        <where>
+            del_flag = '0'
+            <if test="workstationId != null">and workstation_id = #{workstationId}</if>
+            <if test="workstationCode != null and workstationCode != ''">and workstation_code like concat('%', #{workstationCode}, '%')</if>
+            <if test="workstationName != null and workstationName != ''">and workstation_name like concat('%', #{workstationName}, '%')</if>
+            <if test="workstationAddress != null and workstationAddress != ''">and workstation_address like concat('%', #{workstationAddress}, '%')</if>
+            <if test="workshopId != null">and workshop_id = #{workshopId}</if>
+            <if test="workshopCode != null and workshopCode != ''">and workshop_code like concat('%', #{workshopCode}, '%')</if>
+            <if test="workshopName != null and workshopName != ''">and workshop_name like concat('%', #{workshopName}, '%')</if>
+            <if test="processId != null">and process_id = #{processId}</if>
+            <if test="processCode != null and processCode != ''">and process_code like concat('%', #{processCode}, '%')</if>
+            <if test="processName != null and processName != ''">and process_name like concat('%', #{processName}, '%')</if>
+            <if test="warehouseId != null">and warehouse_id = #{warehouseId}</if>
+            <if test="warehouseCode != null and warehouseCode != ''">and warehouse_code like concat('%', #{warehouseCode}, '%')</if>
+            <if test="warehouseName != null and warehouseName != ''">and warehouse_name like concat('%', #{warehouseName}, '%')</if>
+            <if test="areaId != null">and area_id = #{areaId}</if>
+            <if test="areaCode != null and areaCode != ''">and area_code like concat('%', #{areaCode}, '%')</if>
+            <if test="areaName != null and areaName != ''">and area_name like concat('%', #{areaName}, '%')</if>
+            <if test="locationId != null">and location_id = #{locationId}</if>
+            <if test="locationCode != null and locationCode != ''">and location_code like concat('%', #{locationCode}, '%')</if>
+            <if test="locationName != null and locationName != ''">and location_name like concat('%', #{locationName}, '%')</if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+            <if test="remark != null and remark != ''">and remark like concat('%', #{remark}, '%')</if>
+        </where>
+        order by workstation_id asc
+    </select>
+
+    <!-- 根据编码查询（校验编码重复用） -->
+    <select id="selectByWorkstationCode" resultMap="MdWorkstationResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_workstation
+        <where>
+            del_flag = '0'
+            and workstation_code = #{workstationCode}
+        </where>
+        limit 1
+    </select>
+
+    <!-- 根据ID查询单条
+         这里必须包 <where>：MyBatis 的 <where> 会自动处理首个 and 的去留，
+         不包的话 from 后面直接跟条件、没有 where 关键字，MySQL 直接报语法错误。 -->
+    <select id="selectById" resultMap="MdWorkstationResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_workstation
+        <where>
+            del_flag = '0'
+            and workstation_id = #{id}
+        </where>
+    </select>
+
+    <!-- 按工序ID查询可承担该工序的启用工作站（排产选工作站的下拉数据源）
+         一道工序可能对应多个工作站，所以返回列表；只取启用的，停用工作站不能排产。 -->
+    <select id="selectByProcessId" resultMap="MdWorkstationResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_workstation
+        <where>
+            del_flag = '0'
+            and enable_flag = 'Y'
+            and process_id = #{processId}
+        </where>
+        order by workstation_code asc
+    </select>
+
+</mapper>

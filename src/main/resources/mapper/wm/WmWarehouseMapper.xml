@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    仓库（wm_warehouse）
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+
+    【注意】updateById 里刻意不写 warehouse_code：
+           编码会冗余进 wm_location / wm_material_stock / wm_doc 等表，
+           改一处就得批量刷一片，很容易漏。Service 层会直接拦下改编码的请求。
+-->
+<mapper namespace="com.elevn.mes.wm.mapper.WmWarehouseMapper">
+
+    <!-- wm_warehouse 表字段与实体属性的映射 -->
+    <resultMap id="WmWarehouseResultMap" type="com.elevn.mes.wm.entity.WmWarehouse">
+        <id column="warehouse_id" property="warehouseId"/>
+        <result column="warehouse_code" property="warehouseCode"/>
+        <result column="warehouse_name" property="warehouseName"/>
+        <result column="location" property="location"/>
+        <result column="area" property="area"/>
+        <result column="user_id" property="userId"/>
+        <result column="user_name" property="userName"/>
+        <result column="charge" property="charge"/>
+        <result column="manager_id" property="managerId"/>
+        <result column="manager_name" property="managerName"/>
+        <result column="manager_nick" property="managerNick"/>
+        <result column="enable_flag" property="enableFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 详情用：基础字段 + 四个统计字段 -->
+    <resultMap id="WmWarehouseDetailResultMap" type="com.elevn.mes.wm.entity.WmWarehouse"
+               extends="WmWarehouseResultMap">
+        <result column="area_count" property="areaCount"/>
+        <result column="location_count" property="locationCount"/>
+        <result column="stock_quantity" property="stockQuantity"/>
+        <result column="stock_item_count" property="stockItemCount"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        warehouse_id, warehouse_code, warehouse_name, location, area,
+        user_id, user_name, charge, manager_id, manager_name, manager_nick,
+        enable_flag, del_flag, remark, create_by, create_time, update_by,
+        update_time
+    </sql>
+
+    <!--
+        统计字段片段：库区数 / 库位数 / 库存总量 / 库存物料种数
+        用标量子查询而不是 join，避免行膨胀把 PageHelper 的 total 撑大
+    -->
+    <sql id="Stat_Column_List">
+        (select count(1) from wm_location l
+          where l.del_flag = '0' and l.location_type = 'AREA'
+            and l.warehouse_id = w.warehouse_id) as area_count,
+        (select count(1) from wm_location l
+          where l.del_flag = '0' and l.location_type = 'LOCATION'
+            and l.warehouse_id = w.warehouse_id) as location_count,
+        (select ifnull(sum(s.quantity_onhand), 0) from wm_material_stock s
+          where s.del_flag = '0' and s.warehouse_id = w.warehouse_id) as stock_quantity,
+        (select count(distinct s.item_id) from wm_material_stock s
+          where s.del_flag = '0' and s.warehouse_id = w.warehouse_id
+            and s.quantity_onhand > 0) as stock_item_count
+    </sql>
+
+    <!-- 新增仓库：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmWarehouse"
+            useGeneratedKeys="true" keyProperty="warehouseId">
+        insert into wm_warehouse
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="warehouseCode != null and warehouseCode != ''">warehouse_code,</if>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name,</if>
+            <if test="location != null and location != ''">location,</if>
+            <if test="area != null">area,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="userName != null and userName != ''">user_name,</if>
+            <if test="charge != null and charge != ''">charge,</if>
+            <if test="managerId != null">manager_id,</if>
+            <if test="managerName != null and managerName != ''">manager_name,</if>
+            <if test="managerNick != null and managerNick != ''">manager_nick,</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="warehouseCode != null and warehouseCode != ''">#{warehouseCode},</if>
+            <if test="warehouseName != null and warehouseName != ''">#{warehouseName},</if>
+            <if test="location != null and location != ''">#{location},</if>
+            <if test="area != null">#{area},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="userName != null and userName != ''">#{userName},</if>
+            <if test="charge != null and charge != ''">#{charge},</if>
+            <if test="managerId != null">#{managerId},</if>
+            <if test="managerName != null and managerName != ''">#{managerName},</if>
+            <if test="managerNick != null and managerNick != ''">#{managerNick},</if>
+            <if test="enableFlag != null and enableFlag != ''">#{enableFlag},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!--
+        根据ID修改仓库：只更新非 null 字段
+        刻意不更新 warehouse_code（编码不可改）、create_by / create_time / del_flag
+    -->
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmWarehouse">
+        update wm_warehouse
+        <set>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name = #{warehouseName},</if>
+            <if test="location != null">location = #{location},</if>
+            <if test="area != null">area = #{area},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="userName != null">user_name = #{userName},</if>
+            <if test="charge != null">charge = #{charge},</if>
+            <if test="managerId != null">manager_id = #{managerId},</if>
+            <if test="managerName != null">manager_name = #{managerName},</if>
+            <if test="managerNick != null">manager_nick = #{managerNick},</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag = #{enableFlag},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where warehouse_id = #{warehouseId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除仓库：逻辑删除，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update wm_warehouse set del_flag = '1'
+        where warehouse_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量删除：同样走逻辑删除 -->
+    <update id="deleteBatch">
+        update wm_warehouse set del_flag = '1'
+        where del_flag = '0'
+          and warehouse_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 根据ID查询单条（不含统计字段，编码重复校验、删除校验用它，轻量） -->
+    <select id="selectById" resultMap="WmWarehouseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_warehouse
+        <where>
+            del_flag = '0'
+            and warehouse_id = #{id}
+        </where>
+    </select>
+
+    <!-- 详情查询：带库区数 / 库位数 / 库存总量 / 库存物料种数 -->
+    <select id="selectDetailById" resultMap="WmWarehouseDetailResultMap">
+        select
+        <include refid="Base_Column_List"/>,
+        <include refid="Stat_Column_List"/>
+        from wm_warehouse w
+        <where>
+            w.del_flag = '0'
+            and w.warehouse_id = #{id}
+        </where>
+    </select>
+
+    <!-- 根据编码查询（校验编码重复用） -->
+    <select id="selectByWarehouseCode" resultMap="WmWarehouseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_warehouse
+        <where>
+            del_flag = '0'
+            and warehouse_code = #{warehouseCode}
+        </where>
+        limit 1
+    </select>
+
+    <!--
+        多条件查询仓库：条件为空则该字段不参与过滤；始终只查未删除的数据
+        列表页直接显示库区/库位/库存统计，省得每行再发一次请求
+    -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmWarehouse"
+            resultMap="WmWarehouseDetailResultMap">
+        select
+        <include refid="Base_Column_List"/>,
+        <include refid="Stat_Column_List"/>
+        from wm_warehouse w
+        <where>
+            w.del_flag = '0'
+            <if test="warehouseId != null">and w.warehouse_id = #{warehouseId}</if>
+            <if test="warehouseCode != null and warehouseCode != ''">
+                and w.warehouse_code like concat('%', #{warehouseCode}, '%')
+            </if>
+            <if test="warehouseName != null and warehouseName != ''">
+                and w.warehouse_name like concat('%', #{warehouseName}, '%')
+            </if>
+            <if test="enableFlag != null and enableFlag != ''">and w.enable_flag = #{enableFlag}</if>
+            <if test="remark != null and remark != ''">and w.remark like concat('%', #{remark}, '%')</if>
+        </where>
+        order by w.warehouse_id asc
+    </select>
+
+    <!-- 查询全部启用的仓库（下拉数据源） -->
+    <select id="selectAllEnabled" resultMap="WmWarehouseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_warehouse
+        <where>
+            del_flag = '0'
+            and enable_flag = 'Y'
+        </where>
+        order by warehouse_id asc
+    </select>
+
+    <!-- 统计仓库下挂的库区/库位总数（删除前的 L3 校验） -->
+    <select id="countLocationByWarehouseId" resultType="int">
+        select count(1) from wm_location
+        where del_flag = '0'
+          and warehouse_id = #{warehouseId}
+    </select>
+
+    <!-- 统计仓库下还有在库数量的库存记录数（删除前的 L3 校验） -->
+    <select id="countStockByWarehouseId" resultType="int">
+        select count(1) from wm_material_stock
+        where del_flag = '0'
+          and warehouse_id = #{warehouseId}
+          and quantity_onhand > 0
+    </select>
+
+    <!-- 按类型统计库区 / 库位数量 -->
+    <select id="countLocationByType" resultType="int">
+        select count(1) from wm_location
+        where del_flag = '0'
+          and warehouse_id = #{warehouseId}
+          and location_type = #{locationType}
+    </select>
+
+</mapper>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    工序流转卡（pro_card）
+
+
+    说明：一工单一卡，卡是排产的派生数据 —— 撤销/重新排产时物理删除整卡重建。
+          过站数量只在 pro_card_process 上累加，本表只管状态流转。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProCardMapper">
+
+    <!-- pro_card 表字段与实体属性的映射 -->
+    <resultMap id="ProCardResultMap" type="com.elevn.mes.pro.entity.ProCard">
+        <id column="card_id" property="cardId"/>
+        <result column="card_code" property="cardCode"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="workorder_code" property="workorderCode"/>
+        <result column="workorder_name" property="workorderName"/>
+        <result column="batch_code" property="batchCode"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="barcode_url" property="barcodeUrl"/>
+        <result column="quantity_transferred" property="quantityTransferred"/>
+        <result column="status" property="status"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        card_id, card_code, workorder_id, workorder_code, workorder_name,
+        batch_code, item_id, item_code, item_name, specification,
+        unit_of_measure, barcode_url, quantity_transferred, status, del_flag,
+        remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 新增流转卡 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="cardId">
+        insert into pro_card (
+            workorder_id, workorder_code, workorder_name, batch_code, item_id,
+            item_code, item_name, specification, unit_of_measure, quantity_transferred,
+            status, del_flag, remark, create_by, create_time, update_by, update_time
+        ) values (
+            #{workorderId}, #{workorderCode}, #{workorderName}, #{batchCode}, #{itemId},
+            #{itemCode}, #{itemName}, #{specification}, #{unitOfMeasure}, #{quantityTransferred},
+            #{status}, '0', #{remark}, #{createBy}, #{createTime}, #{updateBy}, #{updateTime}
+        )
+    </insert>
+
+    <!-- 按主键查 -->
+    <select id="selectById" resultMap="ProCardResultMap">
+        select <include refid="Base_Column_List"/>
+        from pro_card
+        where card_id = #{cardId} and del_flag = '0'
+    </select>
+
+    <!-- 按工单查卡（一工单一卡） -->
+    <select id="selectByWorkorderId" resultMap="ProCardResultMap">
+        select <include refid="Base_Column_List"/>
+        from pro_card
+        where workorder_id = #{workorderId} and del_flag = '0'
+        limit 1
+    </select>
+
+    <!-- 条件查询（列表页） -->
+    <select id="selectByCondition" resultMap="ProCardResultMap">
+        select <include refid="Base_Column_List"/>
+        from pro_card
+        where del_flag = '0'
+        <if test="cardCode != null and cardCode != ''">
+            and card_code like concat('%', #{cardCode}, '%')
+        </if>
+        <if test="workorderCode != null and workorderCode != ''">
+            and workorder_code like concat('%', #{workorderCode}, '%')
+        </if>
+        <if test="itemName != null and itemName != ''">
+            and item_name like concat('%', #{itemName}, '%')
+        </if>
+        <if test="status != null and status != ''">
+            and status = #{status}
+        </if>
+        order by card_id desc
+    </select>
+
+    <!-- 回填流转卡编号 -->
+    <update id="updateCardCode">
+        update pro_card
+        set card_code = #{cardCode},
+            update_by = #{updateBy},
+            update_time = #{updateTime}
+        where card_id = #{cardId}
+    </update>
+
+    <!-- 更新状态 -->
+    <update id="updateStatus">
+        update pro_card
+        set status = #{status},
+            update_by = #{updateBy},
+            update_time = #{updateTime}
+        where card_id = #{cardId}
+    </update>
+
+    <!-- 按工单物理删除 -->
+    <delete id="deleteByWorkorderId">
+        delete from pro_card
+        where workorder_id = #{workorderId}
+    </delete>
+</mapper>

@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+    装箱单 Mapper XML
+    【列清单维护约定】所有列都带表别名 wm_package（记不牢就翻 Select_Join_Column_List 的教训：
+    join 后列名不带别名会报 1052 歧义错误）。
+-->
+<mapper namespace="com.elevn.mes.wm.mapper.WmPackageMapper">
+
+    <!-- 状态中文名：标量子查询翻字典。
+         必须写全 wm_package.status，否则和子查询里的 sys_dict_data.dict_value 撞名 -->
+    <sql id="Status_Name_Column">
+        (select d.dict_label from sys_dict_data d
+          where d.dict_type = 'wm_package_status'
+            and d.dict_value = wm_package.status
+          limit 1) as status_name
+    </sql>
+
+    <sql id="Base_Column_List">
+        wm_package.package_id, wm_package.parent_id, wm_package.ancestors, wm_package.package_code,
+        wm_package.barcode_id, wm_package.barcode_content, wm_package.barcode_url,
+        wm_package.package_date, wm_package.so_code, wm_package.invoice_code,
+        wm_package.client_id, wm_package.client_code, wm_package.client_name, wm_package.client_nick,
+        wm_package.package_length, wm_package.package_width, wm_package.package_height, wm_package.size_unit,
+        wm_package.net_weight, wm_package.gross_weight, wm_package.weight_unit,
+        wm_package.inspector, wm_package.inspector_name,
+        wm_package.status, wm_package.enable_flag, wm_package.del_flag, wm_package.remark,
+        wm_package.create_by, wm_package.create_time, wm_package.update_by, wm_package.update_time
+    </sql>
+
+    <!-- 父箱编号用自关联取（箱子是树，父箱也是 wm_package 里的一行） -->
+    <sql id="Select_With_Parent">
+        select
+            <include refid="Base_Column_List"/>,
+            <include refid="Status_Name_Column"/>,
+            parent_pkg.package_code as parent_code
+        from wm_package
+        left join wm_package parent_pkg on parent_pkg.package_id = wm_package.parent_id
+        <where>
+            wm_package.del_flag = '0'
+            <if test="packageId != null"> and wm_package.package_id = #{packageId}</if>
+            <if test="packageCode != null and packageCode != ''">
+                and wm_package.package_code like concat('%', #{packageCode}, '%')
+            </if>
+            <if test="clientId != null"> and wm_package.client_id = #{clientId}</if>
+            <if test="soCode != null and soCode != ''">
+                and wm_package.so_code like concat('%', #{soCode}, '%')
+            </if>
+            <if test="status != null and status != ''"> and wm_package.status = #{status}</if>
+            <if test="parentId != null"> and wm_package.parent_id = #{parentId}</if>
+            <if test="packageDateStart != null">
+                <![CDATA[ and wm_package.package_date >= #{packageDateStart} ]]>
+            </if>
+            <if test="packageDateEnd != null">
+                <![CDATA[ and wm_package.package_date <= #{packageDateEnd} ]]>
+            </if>
+        </where>
+        order by wm_package.package_id desc
+    </sql>
+
+    <!-- 分页查询：顺带把箱内统计（种类数 / 总数量）算出来。
+         【用子查询而不是 join 关联表聚合】—— join 聚合会让主表行数被明细撑多，
+         PageHelper 的 total 就虚高了（这是 BOM 页踩过的坑） -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmPackage"
+            resultType="com.elevn.mes.wm.entity.WmPackage">
+        select
+            t.*,
+            (select count(distinct pl.item_id) from wm_package_line pl
+              where pl.package_id = t.package_id and pl.del_flag = '0') as item_count,
+            (select ifnull(sum(pl.quantity), 0) from wm_package_line pl
+              where pl.package_id = t.package_id and pl.del_flag = '0') as total_quantity
+        from (
+            <include refid="Select_With_Parent"/>
+        ) t
+    </select>
+
+    <!-- 【selectById 不复用 Select_With_Parent】
+         共享片段里全是 <if test="xxx != null"> 守卫，按 WmPackage 对象取值没问题；
+         但本方法只传 @Param("packageId") 一个参数，MyBatis 会把它包成 ParamMap，
+         OGNL 取 packageCode/clientId 这些不存在的键会直接抛
+         BindingException: Parameter 'xxx' not found（曾让 /wm/package/{id} 全线 500）。
+         所以按主键查询一律写裸 SQL，项目里其他模块的 selectById 也是这个口径 -->
+    <select id="selectById" resultType="com.elevn.mes.wm.entity.WmPackage">
+        select
+            <include refid="Base_Column_List"/>,
+            <include refid="Status_Name_Column"/>,
+            parent_pkg.package_code as parent_code
+        from wm_package
+        left join wm_package parent_pkg on parent_pkg.package_id = wm_package.parent_id
+        where wm_package.del_flag = '0'
+          and wm_package.package_id = #{packageId}
+    </select>
+
+    <select id="countByCode" resultType="int">
+        select count(*) from wm_package
+        where package_code = #{packageCode} and del_flag = '0'
+        <if test="excludeId != null"> and package_id != #{excludeId}</if>
+    </select>
+
+    <select id="countChild" resultType="int">
+        select count(*) from wm_package
+        where parent_id = #{parentId} and del_flag = '0'
+    </select>
+
+    <select id="selectSubTree" resultType="com.elevn.mes.wm.entity.WmPackage">
+        select
+            <include refid="Base_Column_List"/>,
+            <include refid="Status_Name_Column"/>
+        from wm_package
+        where wm_package.del_flag = '0'
+          and (wm_package.package_id = #{packageId}
+               or wm_package.ancestors like concat(#{ancestorsPrefix}, '%'))
+        order by wm_package.package_id
+    </select>
+
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmPackage"
+            useGeneratedKeys="true" keyProperty="packageId">
+        insert into wm_package
+            (parent_id, ancestors, package_code,
+             barcode_id, barcode_content, barcode_url,
+             package_date, so_code, invoice_code,
+             client_id, client_code, client_name, client_nick,
+             package_length, package_width, package_height, size_unit,
+             net_weight, gross_weight, weight_unit,
+             inspector, inspector_name, status, enable_flag, del_flag, remark,
+             create_by, create_time, update_by, update_time)
+        values
+            (#{parentId}, #{ancestors}, #{packageCode},
+             #{barcodeId}, #{barcodeContent}, #{barcodeUrl},
+             #{packageDate}, #{soCode}, #{invoiceCode},
+             #{clientId}, #{clientCode}, #{clientName}, #{clientNick},
+             #{packageLength}, #{packageWidth}, #{packageHeight}, #{sizeUnit},
+             #{netWeight}, #{grossWeight}, #{weightUnit},
+             #{inspector}, #{inspectorName},
+             ifnull(#{status}, 'PREPARE'), 'Y', '0', #{remark},
+             #{createBy}, now(), #{updateBy}, now())
+    </insert>
+
+    <!-- 编号 / 父级 / 祖链 / 状态 都不在更新范围内：
+         编号对外流转不能改；挪箱涉及整棵子树 ancestors 重刷，不做（要挪就删了重建）；
+         状态走 updateStatus 状态机。另外只有"装箱中"能改信息，where 里卡死 -->
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmPackage">
+        update wm_package
+        set package_date    = #{packageDate},
+            so_code         = #{soCode},
+            invoice_code    = #{invoiceCode},
+            client_id       = #{clientId},
+            client_code     = #{clientCode},
+            client_name     = #{clientName},
+            client_nick     = #{clientNick},
+            package_length  = #{packageLength},
+            package_width   = #{packageWidth},
+            package_height  = #{packageHeight},
+            size_unit       = #{sizeUnit},
+            net_weight      = #{netWeight},
+            gross_weight    = #{grossWeight},
+            weight_unit     = #{weightUnit},
+            inspector       = #{inspector},
+            inspector_name  = #{inspectorName},
+            remark          = #{remark},
+            update_by       = #{updateBy},
+            update_time     = now()
+        where package_id = #{packageId}
+          and status = 'PREPARE'
+          and del_flag = '0'
+    </update>
+
+    <!-- 状态机推进：where 带旧状态，两个并发请求同时点"完成装箱"只有一个生效 -->
+    <update id="updateStatus">
+        update wm_package
+        set status = #{toStatus}, update_time = now()
+        where package_id = #{packageId}
+          and status = #{fromStatus}
+          and del_flag = '0'
+    </update>
+
+    <update id="updateBarcode">
+        update wm_package
+        set barcode_id = #{barcodeId},
+            barcode_content = #{barcodeContent},
+            barcode_url = #{barcodeUrl},
+            update_time = now()
+        where package_id = #{packageId} and del_flag = '0'
+    </update>
+
+    <!-- 逻辑删除。整棵子树一起删由 selectSubTree 先查出来逐个删，
+         调用方必须先校验"没有子箱"，这里不做兜底 -->
+    <update id="deleteById">
+        update wm_package
+        set del_flag = '1', update_time = now()
+        where package_id = #{packageId}
+    </update>
+
+</mapper>

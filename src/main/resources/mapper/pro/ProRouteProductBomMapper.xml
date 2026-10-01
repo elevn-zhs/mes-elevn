@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    制程物料BOM
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag。
+          BOM 行的保存走「整批替换」：deleteByProductAndRoute 清旧 + insertBatch 写新。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProRouteProductBomMapper">
+
+    <!-- pro_route_product_bom 表字段与实体属性的映射 -->
+    <resultMap id="ProRouteProductBomResultMap" type="com.elevn.mes.pro.entity.ProRouteProductBom">
+        <id column="record_id" property="recordId"/>
+        <result column="route_id" property="routeId"/>
+        <result column="process_id" property="processId"/>
+        <result column="product_id" property="productId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="quantity" property="quantity"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        record_id, route_id, process_id, product_id, item_id,
+        item_code, item_name, specification, unit_of_measure, quantity,
+        del_flag, remark, create_by, create_time, update_by,
+        update_time
+    </sql>
+
+    <!-- 批量插入制程BOM：整批替换的写入侧，主键由数据库自增生成 -->
+    <insert id="insertBatch">
+        insert into pro_route_product_bom
+        (route_id, process_id, product_id, item_id, item_code,
+         item_name, specification, unit_of_measure, quantity, del_flag,
+         create_by, create_time)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.routeId}, #{item.processId}, #{item.productId}, #{item.itemId}, #{item.itemCode},
+             #{item.itemName}, #{item.specification}, #{item.unitOfMeasure}, #{item.quantity}, '0',
+             #{item.createBy}, #{item.createTime})
+        </foreach>
+    </insert>
+
+    <!-- 按产品+路线删除全部BOM行：逻辑删除，整批替换的清理侧 -->
+    <update id="deleteByProductAndRoute">
+        update pro_route_product_bom set del_flag = '1'
+        where del_flag = '0'
+          and product_id = #{productId}
+          and route_id = #{routeId}
+    </update>
+
+    <!-- 按产品+路线查询全部BOM行：按工序顺序号、物料编码排序
+         注意 join 了 pro_route_process，两表有同名公共列（route_id 等），
+         所有列必须带 b. 前缀，否则报 1052 Column is ambiguous -->
+    <select id="selectByProductAndRoute" resultMap="ProRouteProductBomResultMap">
+        select
+        b.record_id, b.route_id, b.process_id, b.product_id, b.item_id,
+        b.item_code, b.item_name, b.specification, b.unit_of_measure, b.quantity,
+        b.del_flag, b.remark, b.create_by, b.create_time, b.update_by,
+        b.update_time
+        from pro_route_product_bom b
+        left join pro_route_process rp
+            on rp.route_id = b.route_id and rp.process_id = b.process_id and rp.del_flag = '0'
+        <where>
+            b.del_flag = '0'
+            and b.product_id = #{productId}
+            and b.route_id = #{routeId}
+        </where>
+        order by rp.order_num asc, b.item_code asc
+    </select>
+
+    <!-- 按 路线 + 工序 + 产品 查用料行：报工倒冲消耗时取单位用量
+         product_id 存的是产品物料ID（md_item.item_id），
+         与前端 item-route.vue、ProRouteProductBomServiceImpl.batchSave 同一口径 -->
+    <select id="selectByRouteProcessProduct" resultMap="ProRouteProductBomResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_route_product_bom b
+        <where>
+            b.del_flag = '0'
+            and b.route_id = #{routeId}
+            and b.process_id = #{processId}
+            and b.product_id = #{productId}
+        </where>
+        order by b.item_code asc
+    </select>
+
+</mapper>

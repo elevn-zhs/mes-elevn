@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SN 过站记录 Mapper XML（只读） -->
+<mapper namespace="com.elevn.mes.pro.mapper.ProSnProcessMapper">
+
+    <select id="selectBySnId" resultType="com.elevn.mes.pro.entity.ProSnProcess">
+        select record_id, sn_id, sn_code, seq_num,
+               process_id, process_code, process_name,
+               input_time, output_time,
+               quantity_input, quantity_output, quantity_unqualified,
+               workstation_id, workstation_code, workstation_name,
+               ipqc_id, user_id, user_name, nick_name, del_flag, remark
+        from pro_sn_process
+        where sn_id = #{snId} and del_flag = '0'
+        order by seq_num
+    </select>
+
+</mapper>

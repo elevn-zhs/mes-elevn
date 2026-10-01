@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    生产任务（pro_task）
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag。
+          排产走「整批替换」：deleteByWorkorderId 物理清旧 + insertBatch 写新，
+          保证同一工单重复排产是幂等的，不会残留上一版任务。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProTaskMapper">
+
+    <!-- pro_task 表字段与实体属性的映射 -->
+    <resultMap id="ProTaskResultMap" type="com.elevn.mes.pro.entity.ProTask">
+        <id column="task_id" property="taskId"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="task_name" property="taskName"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="workorder_code" property="workorderCode"/>
+        <result column="workorder_name" property="workorderName"/>
+        <result column="workstation_id" property="workstationId"/>
+        <result column="workstation_code" property="workstationCode"/>
+        <result column="workstation_name" property="workstationName"/>
+        <result column="route_id" property="routeId"/>
+        <result column="route_code" property="routeCode"/>
+        <result column="process_id" property="processId"/>
+        <result column="process_code" property="processCode"/>
+        <result column="process_name" property="processName"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="quantity" property="quantity"/>
+        <result column="quantity_produced" property="quantityProduced"/>
+        <result column="quantity_qualified" property="quantityQualified"/>
+        <result column="quantity_unqualified" property="quantityUnqualified"/>
+        <result column="quantity_changed" property="quantityChanged"/>
+        <result column="client_id" property="clientId"/>
+        <result column="client_code" property="clientCode"/>
+        <result column="client_name" property="clientName"/>
+        <result column="client_nick" property="clientNick"/>
+        <result column="start_time" property="startTime"/>
+        <result column="duration" property="duration"/>
+        <result column="end_time" property="endTime"/>
+        <result column="color_code" property="colorCode"/>
+        <result column="request_date" property="requestDate"/>
+        <result column="finish_date" property="finishDate"/>
+        <result column="cancel_date" property="cancelDate"/>
+        <result column="status" property="status"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        task_id, task_code, task_name, workorder_id, workorder_code,
+        workorder_name, workstation_id, workstation_code, workstation_name, route_id,
+        route_code, process_id, process_code, process_name, item_id,
+        item_code, item_name, specification, unit_of_measure, unit_name,
+        quantity, quantity_produced, quantity_qualified, quantity_unqualified, quantity_changed,
+        client_id, client_code, client_name, client_nick, start_time,
+        duration, end_time, color_code, request_date, finish_date,
+        cancel_date, status, del_flag, remark, create_by,
+        create_time, update_by, update_time
+    </sql>
+
+    <!-- 批量插入生产任务：排产写入侧，主键由数据库自增生成 -->
+    <insert id="insertBatch">
+        insert into pro_task
+        (task_code, task_name, workorder_id, workorder_code, workorder_name,
+         workstation_id, workstation_code, workstation_name, route_id, route_code,
+         process_id, process_code, process_name, item_id, item_code,
+         item_name, specification, unit_of_measure, unit_name, quantity,
+         quantity_produced, quantity_qualified, quantity_unqualified, quantity_changed,
+         client_id, client_code, client_name, client_nick, start_time,
+         duration, end_time, color_code, request_date, status,
+         del_flag, remark, create_by, create_time, update_by,
+         update_time)
+        values
+        <foreach collection="list" item="it" separator=",">
+            (#{it.taskCode}, #{it.taskName}, #{it.workorderId}, #{it.workorderCode}, #{it.workorderName},
+             #{it.workstationId}, #{it.workstationCode}, #{it.workstationName}, #{it.routeId}, #{it.routeCode},
+             #{it.processId}, #{it.processCode}, #{it.processName}, #{it.itemId}, #{it.itemCode},
+             #{it.itemName}, #{it.specification}, #{it.unitOfMeasure}, #{it.unitName}, #{it.quantity},
+             #{it.quantityProduced}, #{it.quantityQualified}, #{it.quantityUnqualified}, #{it.quantityChanged},
+             #{it.clientId}, #{it.clientCode}, #{it.clientName}, #{it.clientNick}, #{it.startTime},
+             #{it.duration}, #{it.endTime}, #{it.colorCode}, #{it.requestDate}, #{it.status},
+             '0', #{it.remark}, #{it.createBy}, #{it.createTime}, #{it.updateBy},
+             #{it.updateTime})
+        </foreach>
+    </insert>
+
+    <!--
+      按工单ID物理删除全部任务
+      刻意不做逻辑删除：任务行是可重算的派生数据，
+      逻辑删除会让同一工单同一工序出现多行，甘特图与报工查询都要额外过滤。
+    -->
+    <delete id="deleteByWorkorderId">
+        delete from pro_task where workorder_id = #{workorderId}
+    </delete>
+
+    <!-- 按工单ID查询任务：按开始时间、任务编号排序（甘特图按这个顺序画行） -->
+    <select id="selectByWorkorderId" resultMap="ProTaskResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_task
+        where del_flag = '0'
+          and workorder_id = #{workorderId}
+        order by start_time asc, task_code asc
+    </select>
+
+    <!-- 按主键查询单条 -->
+    <select id="selectById" resultMap="ProTaskResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_task
+        where del_flag = '0'
+          and task_id = #{id}
+    </select>
+
+    <!--
+      统计某工单下已报过工的任务数（撤销排产前置校验）
+      只要有一条任务的已生产数量 > 0，就说明已经开工，不允许撤销排产。
+    -->
+    <select id="countProducedByWorkorderId" resultType="int">
+        select count(1) from pro_task
+        where del_flag = '0'
+          and workorder_id = #{workorderId}
+          and ifnull(quantity_produced, 0) > 0
+    </select>
+
+    <!-- 条件查询任务列表（列表页 / 甘特图，不分页） -->
+    <select id="selectByCondition" resultMap="ProTaskResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_task
+        <where>
+            del_flag = '0'
+            <if test="workorderId != null">and workorder_id = #{workorderId}</if>
+            <if test="workorderCode != null and workorderCode != ''">
+                and workorder_code like concat('%', #{workorderCode}, '%')
+            </if>
+            <if test="taskCode != null and taskCode != ''">
+                and task_code like concat('%', #{taskCode}, '%')
+            </if>
+            <if test="processId != null">and process_id = #{processId}</if>
+            <if test="workstationId != null">and workstation_id = #{workstationId}</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+            <if test="startTime != null">and start_time &gt;= #{startTime}</if>
+            <if test="endTime != null">and start_time &lt;= #{endTime}</if>
+        </where>
+        order by start_time asc, task_code asc
+    </select>
+
+    <!-- 按主键修改：只更新非 null 字段；排产算出的时间/数量字段不在这里改 -->
+    <update id="updateById">
+        update pro_task
+        <set>
+            <if test="taskName != null">task_name = #{taskName},</if>
+            <if test="workstationId != null">workstation_id = #{workstationId},</if>
+            <if test="workstationCode != null">workstation_code = #{workstationCode},</if>
+            <if test="workstationName != null">workstation_name = #{workstationName},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="duration != null">duration = #{duration},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="colorCode != null">color_code = #{colorCode},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="finishDate != null">finish_date = #{finishDate},</if>
+            <if test="cancelDate != null">cancel_date = #{cancelDate},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where task_id = #{taskId}
+    </update>
+
+    <!-- 按主键逻辑删除（单条取消用） -->
+    <update id="deleteById">
+        update pro_task set del_flag = '1'
+        where task_id = #{id}
+    </update>
+
+    <!-- 某产品已排产数量合计（产能负荷看板用） -->
+    <select id="sumScheduledByItemId" resultType="java.math.BigDecimal">
+        select ifnull(sum(quantity), 0) from pro_task
+        where del_flag = '0'
+          and status != 'CANCELED'
+          and item_id = #{itemId}
+    </select>
+
+    <!--
+      报工回写 / 冲销回退：累计已生产/合格/不良数量，并按需推进状态
+      用 ifnull(...,0) + #{qty} 让数据库做加法，避免"先查后写"在并发报工时互相覆盖。
+      冲销时传负数即完成减回，不必另写一套减法 SQL。
+
+      status 传 null 时不改状态（MyBatis 的 <if> 就是干这个的）。
+      finish_date 刻意无条件赋值：任务从 FINISHED 退回 WORKING 时必须把完工时间
+      一并清掉，否则会出现"没完工却有完工时间"的脏数据。报工场景非 FINISHED 时
+      本来就没有完工时间，赋 null 无副作用。
+    -->
+    <update id="addProducedQuantity">
+        update pro_task
+        <set>
+            quantity_produced = ifnull(quantity_produced, 0) + #{produced},
+            quantity_qualified = ifnull(quantity_qualified, 0) + #{qualified},
+            quantity_unqualified = ifnull(quantity_unqualified, 0) + #{unqualified},
+            <if test="status != null">status = #{status},</if>
+            finish_date = #{finishDate},
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where task_id = #{taskId}
+    </update>
+
+    <!--
+      统计某工单下"还没完工"的任务数
+      排除 CANCELED —— 否则一条任务被取消，工单永远完不了。
+    -->
+    <select id="countUnfinishedByWorkorderId" resultType="int">
+        select count(1) from pro_task
+        where del_flag = '0'
+          and workorder_id = #{workorderId}
+          and ifnull(status, 'NORMAL') not in ('FINISHED', 'CANCELED')
+    </select>
+
+</mapper>

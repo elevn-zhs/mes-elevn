@@ -1,0 +1,412 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    库存记录 / 现存量（wm_material_stock）
+
+
+    【三条铁律，写在这个文件的最前面】
+    1) 页面只读：库存只能由单据过账改，所以这里没有通用 updateById。
+    2) 入库 = "找行 + 累加"，不是无脑 insert。
+       同一「物料+批次+仓库+库区+库位+容器」只允许一行（uk_stock），
+       找不到才建新行；无脑 insert 会撞唯一键，或者（更糟）把同一批料拆成好几行，
+       对账永远对不平。
+    3) 出库扣减的 where 里带可用量判断，返回 0 行代表"余额不够/被别人抢走了"。
+       这是并发下的最后一道闸，比 Service 里的校验更硬。
+
+    【可用量怎么算】
+      quantity_available = ifnull(quantity_onhand,0) - ifnull(quantity_reserved,0)
+      出库校验一律用它，不看 quantity_onhand —— 已经被别的单据预留的货不能再卖一次。
+
+    【为什么 selectAvailableForOutbound 按入库时间升序】
+      先进先出。老批次先出，新批次留在库里，尽量不让货放到过期。
+-->
+<mapper namespace="com.elevn.mes.wm.mapper.WmMaterialStockMapper">
+
+    <!-- wm_material_stock 表字段与实体属性的映射（含算出来的可用量） -->
+    <resultMap id="WmMaterialStockResultMap" type="com.elevn.mes.wm.entity.WmMaterialStock">
+        <id column="material_stock_id" property="materialStockId"/>
+        <result column="item_type_id" property="itemTypeId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="batch_id" property="batchId"/>
+        <result column="batch_code" property="batchCode"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="workorder_code" property="workorderCode"/>
+        <result column="vendor_id" property="vendorId"/>
+        <result column="vendor_code" property="vendorCode"/>
+        <result column="vendor_name" property="vendorName"/>
+        <result column="vendor_nick" property="vendorNick"/>
+        <result column="client_id" property="clientId"/>
+        <result column="client_code" property="clientCode"/>
+        <result column="client_name" property="clientName"/>
+        <result column="client_nick" property="clientNick"/>
+        <result column="warehouse_id" property="warehouseId"/>
+        <result column="warehouse_code" property="warehouseCode"/>
+        <result column="warehouse_name" property="warehouseName"/>
+        <result column="location_id" property="locationId"/>
+        <result column="location_code" property="locationCode"/>
+        <result column="location_name" property="locationName"/>
+        <result column="area_id" property="areaId"/>
+        <result column="area_code" property="areaCode"/>
+        <result column="area_name" property="areaName"/>
+        <result column="package_id" property="packageId"/>
+        <result column="package_code" property="packageCode"/>
+        <result column="quantity_onhand" property="quantityOnhand"/>
+        <result column="quantity_reserved" property="quantityReserved"/>
+        <result column="production_date" property="productionDate"/>
+        <result column="recpt_date" property="recptDate"/>
+        <result column="expire_date" property="expireDate"/>
+        <result column="frozen_flag" property="frozenFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="quantity_available" property="quantityAvailable"/>
+        <!-- 非表字段：汇总/预警时算出来的 -->
+        <result column="min_stock" property="minStock"/>
+        <result column="max_stock" property="maxStock"/>
+        <result column="item_kind_count" property="itemKindCount"/>
+        <result column="warning_type" property="warningType"/>
+    </resultMap>
+
+    <!-- 公共字段列表（可用量是算出来的，不是表里的列） -->
+    <sql id="Base_Column_List">
+        material_stock_id, item_type_id, item_id, item_code, item_name,
+        specification, unit_of_measure, unit_name,
+        batch_id, batch_code, workorder_id, workorder_code,
+        vendor_id, vendor_code, vendor_name, vendor_nick,
+        client_id, client_code, client_name, client_nick,
+        warehouse_id, warehouse_code, warehouse_name,
+        location_id, location_code, location_name,
+        area_id, area_code, area_name, package_id, package_code,
+        quantity_onhand, quantity_reserved,
+        (ifnull(quantity_onhand, 0) - ifnull(quantity_reserved, 0)) as quantity_available,
+        production_date, recpt_date, expire_date, frozen_flag, del_flag, remark,
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- uk_stock 六件套：物料 + 批次 + 仓库 + 库区 + 库位 + 容器 -->
+    <sql id="Uk_Stock_Dimension">
+        del_flag = '0'
+        and item_id = #{itemId}
+        and ifnull(batch_id, 0) = ifnull(#{batchId}, 0)
+        and warehouse_id = #{warehouseId}
+        and ifnull(location_id, 0) = ifnull(#{locationId}, 0)
+        and ifnull(area_id, 0) = ifnull(#{areaId}, 0)
+        and ifnull(package_id, 0) = ifnull(#{packageId}, 0)
+    </sql>
+
+    <!-- 按唯一键维度找库存行 -->
+    <select id="selectByDimension" parameterType="com.elevn.mes.wm.entity.WmMaterialStock"
+            resultMap="WmMaterialStockResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_material_stock
+        <where>
+            <include refid="Uk_Stock_Dimension"/>
+        </where>
+        limit 1
+    </select>
+
+    <!-- 新建库存行 -->
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmMaterialStock"
+            useGeneratedKeys="true" keyProperty="materialStockId">
+        insert into wm_material_stock
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="itemTypeId != null">item_type_id,</if>
+            <if test="itemId != null">item_id,</if>
+            <if test="itemCode != null and itemCode != ''">item_code,</if>
+            <if test="itemName != null and itemName != ''">item_name,</if>
+            <if test="specification != null and specification != ''">specification,</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">unit_of_measure,</if>
+            <if test="unitName != null and unitName != ''">unit_name,</if>
+            <!-- 下面四个维度即使为"无"也必须落库，用 0 / 空串，不给 NULL -->
+            <!-- 【注意】warehouse_code / warehouse_name 也是无条件写的。
+                 这两个是"仓库"维度的展示列：库存查询页的仓库列、按仓库汇总的仓库编码与名称、
+                 以及出库流水里的仓库名，都从这里取（出库流水是从库存行复制的）。
+                 漏掉的话库存一栏仓库全空，出库流水也丢了仓库信息。 -->
+            batch_id, batch_code,
+            warehouse_id, warehouse_code, warehouse_name,
+            location_id, location_code, location_name,
+            area_id, area_code, area_name, package_id, package_code,
+            quantity_onhand, quantity_reserved,
+            <if test="workorderId != null">workorder_id,</if>
+            <if test="workorderCode != null and workorderCode != ''">workorder_code,</if>
+            <if test="vendorId != null">vendor_id,</if>
+            <if test="vendorCode != null and vendorCode != ''">vendor_code,</if>
+            <if test="vendorName != null and vendorName != ''">vendor_name,</if>
+            <if test="vendorNick != null and vendorNick != ''">vendor_nick,</if>
+            <if test="clientId != null">client_id,</if>
+            <if test="clientCode != null and clientCode != ''">client_code,</if>
+            <if test="clientName != null and clientName != ''">client_name,</if>
+            <if test="clientNick != null and clientNick != ''">client_nick,</if>
+            <if test="productionDate != null">production_date,</if>
+            <if test="recptDate != null">recpt_date,</if>
+            <if test="expireDate != null">expire_date,</if>
+            <if test="frozenFlag != null and frozenFlag != ''">frozen_flag,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="itemTypeId != null">#{itemTypeId},</if>
+            <if test="itemId != null">#{itemId},</if>
+            <if test="itemCode != null and itemCode != ''">#{itemCode},</if>
+            <if test="itemName != null and itemName != ''">#{itemName},</if>
+            <if test="specification != null and specification != ''">#{specification},</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">#{unitOfMeasure},</if>
+            <if test="unitName != null and unitName != ''">#{unitName},</if>
+            ifnull(#{batchId}, 0), ifnull(#{batchCode}, ''),
+            #{warehouseId}, ifnull(#{warehouseCode}, ''), ifnull(#{warehouseName}, ''),
+            ifnull(#{locationId}, 0), ifnull(#{locationCode}, ''), ifnull(#{locationName}, ''),
+            ifnull(#{areaId}, 0), ifnull(#{areaCode}, ''), ifnull(#{areaName}, ''),
+            ifnull(#{packageId}, 0), ifnull(#{packageCode}, ''),
+            ifnull(#{quantityOnhand}, 0), ifnull(#{quantityReserved}, 0),
+            <if test="workorderId != null">#{workorderId},</if>
+            <if test="workorderCode != null and workorderCode != ''">#{workorderCode},</if>
+            <if test="vendorId != null">#{vendorId},</if>
+            <if test="vendorCode != null and vendorCode != ''">#{vendorCode},</if>
+            <if test="vendorName != null and vendorName != ''">#{vendorName},</if>
+            <if test="vendorNick != null and vendorNick != ''">#{vendorNick},</if>
+            <if test="clientId != null">#{clientId},</if>
+            <if test="clientCode != null and clientCode != ''">#{clientCode},</if>
+            <if test="clientName != null and clientName != ''">#{clientName},</if>
+            <if test="clientNick != null and clientNick != ''">#{clientNick},</if>
+            <if test="productionDate != null">#{productionDate},</if>
+            <if test="recptDate != null">#{recptDate},</if>
+            <if test="expireDate != null">#{expireDate},</if>
+            <if test="frozenFlag != null and frozenFlag != ''">#{frozenFlag},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 入库累加在库数量 -->
+    <update id="addOnhand">
+        update wm_material_stock
+        set quantity_onhand = ifnull(quantity_onhand, 0) + #{quantity},
+            update_time = now()
+        where material_stock_id = #{materialStockId}
+          and del_flag = '0'
+    </update>
+
+    <!--
+        出库扣减在库数量
+        where 里的可用量判断是并发下的最后一道闸：余额不够就 0 行，
+        Service 抛异常回滚，绝不会出现负数库存。
+    -->
+    <update id="reduceOnhand">
+        update wm_material_stock
+        set quantity_onhand = quantity_onhand - #{quantity},
+            update_time = now()
+        where material_stock_id = #{materialStockId}
+          and del_flag = '0'
+          and (ifnull(quantity_onhand, 0) - ifnull(quantity_reserved, 0)) &gt;= #{quantity}
+    </update>
+
+    <!-- 按ID查询单条 -->
+    <select id="selectById" resultMap="WmMaterialStockResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_material_stock
+        <where>
+            del_flag = '0'
+            and material_stock_id = #{id}
+        </where>
+    </select>
+
+    <!--
+        查可出库的库存行（出库行未指定 material_stock_id 时由后端自行找货）
+        先进先出：按入库时间升序，没入库时间的按主键升序兜底
+    -->
+    <select id="selectAvailableForOutbound" parameterType="com.elevn.mes.wm.entity.WmMaterialStock"
+            resultMap="WmMaterialStockResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_material_stock
+        <where>
+            del_flag = '0'
+            and item_id = #{itemId}
+            and frozen_flag = 'N'
+            and (ifnull(quantity_onhand, 0) - ifnull(quantity_reserved, 0)) &gt; 0
+            <if test="batchId != null and batchId != 0">and batch_id = #{batchId}</if>
+            <if test="warehouseId != null">and warehouse_id = #{warehouseId}</if>
+            <if test="locationId != null and locationId != 0">and location_id = #{locationId}</if>
+            <if test="areaId != null and areaId != 0">and area_id = #{areaId}</if>
+        </where>
+        order by recpt_date asc, material_stock_id asc
+    </select>
+
+    <!--
+        多条件查询库存（库存查询页用；pageNum/pageSize 交给 PageHelper 在外面处理）
+
+        【为什么要外面再包一层】需要带上"最低/最高库存"和"是否预警"三个算出来的列。
+        直接写在 select 里的话，warning_type 的 case 又要重复写一遍 min_stock 子查询；
+        包一层派生表，外层就能直接用内层的别名判断。
+    -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmMaterialStock"
+            resultMap="WmMaterialStockResultMap">
+        select t.*,
+        (case when t.min_stock is not null and t.min_stock &gt; 0 and t.quantity_onhand &lt; t.min_stock then 'LOW'
+        when t.max_stock is not null and t.max_stock &gt; 0 and t.quantity_onhand &gt; t.max_stock then 'HIGH'
+        else '' end) as warning_type
+        from (
+        select
+        <include refid="Base_Column_List"/>,
+        (select i.min_stock from md_item i
+        where i.item_id = wm_material_stock.item_id and i.del_flag = '0' limit 1) as min_stock,
+        (select i.max_stock from md_item i
+        where i.item_id = wm_material_stock.item_id and i.del_flag = '0' limit 1) as max_stock
+        from wm_material_stock
+        <where>
+            del_flag = '0'
+            <if test="itemId != null">and item_id = #{itemId}</if>
+            <if test="itemCode != null and itemCode != ''">
+                and item_code like concat('%', #{itemCode}, '%')
+            </if>
+            <if test="itemName != null and itemName != ''">
+                and item_name like concat('%', #{itemName}, '%')
+            </if>
+            <if test="batchId != null and batchId != 0">and batch_id = #{batchId}</if>
+            <if test="batchCode != null and batchCode != ''">
+                and batch_code like concat('%', #{batchCode}, '%')
+            </if>
+            <if test="warehouseId != null">and warehouse_id = #{warehouseId}</if>
+            <if test="locationId != null and locationId != 0">and location_id = #{locationId}</if>
+            <if test="areaId != null and areaId != 0">and area_id = #{areaId}</if>
+            <if test="frozenFlag != null and frozenFlag != ''">and frozen_flag = #{frozenFlag}</if>
+            <if test="onlyStock != null and onlyStock != ''">
+                and ifnull(quantity_onhand, 0) &gt; 0
+            </if>
+        </where>
+        ) t
+        order by t.material_stock_id desc
+    </select>
+
+    <!-- 统计某仓库下的库存记录数（仓库删除前的 L3 校验） -->
+    <select id="countByWarehouseId" resultType="int">
+        select count(1) from wm_material_stock
+        where del_flag = '0'
+          and warehouse_id = #{warehouseId}
+    </select>
+
+    <!--
+        按物料汇总：同一个物料散在多个仓库库位的数量加起来看总数
+        注意 quantity_onhand / quantity_available 这里是【求和结果】，不是某一行的数量
+    -->
+    <select id="selectSummaryByItem" parameterType="com.elevn.mes.wm.entity.WmMaterialStock"
+            resultMap="WmMaterialStockResultMap">
+        select s.item_id,
+        s.item_code,
+        s.item_name,
+        s.specification,
+        s.unit_of_measure,
+        s.unit_name,
+        sum(ifnull(s.quantity_onhand, 0)) as quantity_onhand,
+        sum(ifnull(s.quantity_reserved, 0)) as quantity_reserved,
+        sum(ifnull(s.quantity_onhand, 0) - ifnull(s.quantity_reserved, 0)) as quantity_available,
+        count(1) as item_kind_count,
+        (select i.min_stock from md_item i
+        where i.item_id = s.item_id and i.del_flag = '0' limit 1) as min_stock,
+        (select i.max_stock from md_item i
+        where i.item_id = s.item_id and i.del_flag = '0' limit 1) as max_stock
+        from wm_material_stock s
+        <where>
+            s.del_flag = '0'
+            <if test="itemId != null">and s.item_id = #{itemId}</if>
+            <if test="itemCode != null and itemCode != ''">
+                and s.item_code like concat('%', #{itemCode}, '%')
+            </if>
+            <if test="itemName != null and itemName != ''">
+                and s.item_name like concat('%', #{itemName}, '%')
+            </if>
+            <if test="warehouseId != null">and s.warehouse_id = #{warehouseId}</if>
+            <if test="onlyStock != null and onlyStock != ''">
+                and ifnull(s.quantity_onhand, 0) &gt; 0
+            </if>
+        </where>
+        group by s.item_id, s.item_code, s.item_name, s.specification, s.unit_of_measure, s.unit_name
+        order by s.item_id asc
+    </select>
+
+    <!-- 按仓库汇总：每个仓库里有多少种物料、总量多少 -->
+    <select id="selectSummaryByWarehouse" parameterType="com.elevn.mes.wm.entity.WmMaterialStock"
+            resultMap="WmMaterialStockResultMap">
+        select s.warehouse_id,
+        s.warehouse_code,
+        s.warehouse_name,
+        sum(ifnull(s.quantity_onhand, 0)) as quantity_onhand,
+        sum(ifnull(s.quantity_reserved, 0)) as quantity_reserved,
+        sum(ifnull(s.quantity_onhand, 0) - ifnull(s.quantity_reserved, 0)) as quantity_available,
+        count(distinct s.item_id) as item_kind_count
+        from wm_material_stock s
+        <where>
+            s.del_flag = '0'
+            <if test="warehouseId != null">and s.warehouse_id = #{warehouseId}</if>
+            <if test="itemId != null">and s.item_id = #{itemId}</if>
+            <if test="onlyStock != null and onlyStock != ''">
+                and ifnull(s.quantity_onhand, 0) &gt; 0
+            </if>
+        </where>
+        group by s.warehouse_id, s.warehouse_code, s.warehouse_name
+        order by s.warehouse_id asc
+    </select>
+
+    <!--
+        库存预警：先按物料汇总，再把低于最低库存 / 高于最高库存的挑出来
+        安全库存（min_stock / max_stock）取自 E 线的 md_item
+    -->
+    <select id="selectWarningList" resultMap="WmMaterialStockResultMap">
+        select t.*,
+        (case when t.min_stock &gt; 0 and t.quantity_onhand &lt; t.min_stock then 'LOW'
+        else 'HIGH' end) as warning_type
+        from (
+        select s.item_id,
+        s.item_code,
+        s.item_name,
+        s.specification,
+        s.unit_of_measure,
+        s.unit_name,
+        sum(ifnull(s.quantity_onhand, 0)) as quantity_onhand,
+        sum(ifnull(s.quantity_reserved, 0)) as quantity_reserved,
+        sum(ifnull(s.quantity_onhand, 0) - ifnull(s.quantity_reserved, 0)) as quantity_available,
+        ifnull((select i.min_stock from md_item i
+        where i.item_id = s.item_id and i.del_flag = '0' limit 1), 0) as min_stock,
+        ifnull((select i.max_stock from md_item i
+        where i.item_id = s.item_id and i.del_flag = '0' limit 1), 0) as max_stock
+        from wm_material_stock s
+        where s.del_flag = '0'
+        group by s.item_id, s.item_code, s.item_name, s.specification, s.unit_of_measure, s.unit_name
+        ) t
+        where (t.min_stock &gt; 0 and t.quantity_onhand &lt; t.min_stock)
+        or (t.max_stock &gt; 0 and t.quantity_onhand &gt; t.max_stock)
+        order by t.item_code asc
+    </select>
+
+    <!-- 盘点范围展开：三个维度任意传，生成盘点单时按范围把库存行圈出来 -->
+    <select id="selectByScope" resultType="com.elevn.mes.wm.entity.WmMaterialStock">
+        select <include refid="Base_Column_List"/>
+        from wm_material_stock
+        <where>
+            del_flag = '0'
+            and ifnull(quantity_onhand, 0) &gt; 0
+            <if test="warehouseId != null">and warehouse_id = #{warehouseId}</if>
+            <if test="areaId != null">and area_id = #{areaId}</if>
+            <if test="itemTypeId != null">and item_type_id = #{itemTypeId}</if>
+        </where>
+        order by material_stock_id
+    </select>
+
+</mapper>

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.elevn.mes.sys.mapper.SysDeptMapper">
+
+    <!-- sys_dept 表字段与实体属性的映射 -->
+    <resultMap id="SysDeptResultMap" type="com.elevn.mes.sys.entity.SysDept">
+        <id column="dept_id" property="deptId"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="ancestors" property="ancestors"/>
+        <result column="dept_code" property="deptCode"/>
+        <result column="dept_name" property="deptName"/>
+        <result column="order_num" property="orderNum"/>
+        <result column="leader" property="leader"/>
+        <result column="phone" property="phone"/>
+        <result column="email" property="email"/>
+        <result column="status" property="status"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="remark" property="remark"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        dept_id, parent_id, ancestors, dept_code, dept_name,
+        order_num, leader, phone, email, status,
+        del_flag, create_by, create_time, update_by, update_time,
+        remark
+    </sql>
+
+    <!-- 新增部门：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.sys.entity.SysDept" useGeneratedKeys="true" keyProperty="deptId">
+        insert into sys_dept
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="parentId != null">parent_id,</if>
+            <if test="ancestors != null and ancestors != ''">ancestors,</if>
+            <if test="deptCode != null and deptCode != ''">dept_code,</if>
+            <if test="deptName != null and deptName != ''">dept_name,</if>
+            <if test="orderNum != null">order_num,</if>
+            <if test="leader != null and leader != ''">leader,</if>
+            <if test="phone != null and phone != ''">phone,</if>
+            <if test="email != null and email != ''">email,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="parentId != null">#{parentId},</if>
+            <if test="ancestors != null and ancestors != ''">#{ancestors},</if>
+            <if test="deptCode != null and deptCode != ''">#{deptCode},</if>
+            <if test="deptName != null and deptName != ''">#{deptName},</if>
+            <if test="orderNum != null">#{orderNum},</if>
+            <if test="leader != null and leader != ''">#{leader},</if>
+            <if test="phone != null and phone != ''">#{phone},</if>
+            <if test="email != null and email != ''">#{email},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改部门：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.sys.entity.SysDept">
+        update sys_dept
+        <set>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="ancestors != null and ancestors != ''">ancestors = #{ancestors},</if>
+            <if test="deptCode != null and deptCode != ''">dept_code = #{deptCode},</if>
+            <if test="deptName != null and deptName != ''">dept_name = #{deptName},</if>
+            <if test="orderNum != null">order_num = #{orderNum},</if>
+            <if test="leader != null and leader != ''">leader = #{leader},</if>
+            <if test="phone != null and phone != ''">phone = #{phone},</if>
+            <if test="email != null and email != ''">email = #{email},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+        </set>
+        where dept_id = #{deptId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除部门：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update sys_dept set del_flag = '1'
+        where dept_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 多条件查询部门：条件为空则该字段不参与过滤；始终只查未删除的数据 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.sys.entity.SysDept" resultMap="SysDeptResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_dept
+        <where>
+            del_flag = '0'
+            <if test="deptId != null">and dept_id = #{deptId}</if>
+            <if test="deptName != null and deptName != ''">and dept_name like concat('%', #{deptName}, '%')</if>
+            <if test="deptCode != null and deptCode != ''">and dept_code like concat('%', #{deptCode}, '%')</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+            <if test="parentId != null">and parent_id = #{parentId}</if>
+            <if test="leader != null and leader != ''">and leader like concat('%', #{leader}, '%')</if>
+        </where>
+        order by order_num asc
+    </select>
+    <select id="selectById" resultMap="SysDeptResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_dept
+        where del_flag='0' and dept_id = #{id}
+    </select>
+    <select id="selectByParentId" resultMap="SysDeptResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_dept
+        where del_flag='0' and parent_id = #{parentId}
+    </select>
+
+</mapper>

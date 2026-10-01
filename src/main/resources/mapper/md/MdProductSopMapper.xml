@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    产品SOP
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+-->
+<mapper namespace="com.elevn.mes.md.mapper.MdProductSopMapper">
+
+    <!-- md_product_sop 表字段与实体属性的映射 -->
+    <resultMap id="MdProductSopResultMap" type="com.elevn.mes.md.entity.MdProductSop">
+        <id column="sop_id" property="sopId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="order_num" property="orderNum"/>
+        <result column="process_id" property="processId"/>
+        <result column="process_code" property="processCode"/>
+        <result column="process_name" property="processName"/>
+        <result column="sop_title" property="sopTitle"/>
+        <result column="sop_description" property="sopDescription"/>
+        <result column="sop_url" property="sopUrl"/>
+        <result column="enable_flag" property="enableFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        sop_id, item_id, order_num, process_id, process_code,
+        process_name, sop_title, sop_description, sop_url, enable_flag, del_flag,
+        remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 新增产品SOP：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.md.entity.MdProductSop" useGeneratedKeys="true" keyProperty="sopId">
+        insert into md_product_sop
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="itemId != null">item_id,</if>
+            <if test="orderNum != null">order_num,</if>
+            <if test="processId != null">process_id,</if>
+            <if test="processCode != null and processCode != ''">process_code,</if>
+            <if test="processName != null and processName != ''">process_name,</if>
+            <if test="sopTitle != null and sopTitle != ''">sop_title,</if>
+            <if test="sopDescription != null and sopDescription != ''">sop_description,</if>
+            <if test="sopUrl != null and sopUrl != ''">sop_url,</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="itemId != null">#{itemId},</if>
+            <if test="orderNum != null">#{orderNum},</if>
+            <if test="processId != null">#{processId},</if>
+            <if test="processCode != null and processCode != ''">#{processCode},</if>
+            <if test="processName != null and processName != ''">#{processName},</if>
+            <if test="sopTitle != null and sopTitle != ''">#{sopTitle},</if>
+            <if test="sopDescription != null and sopDescription != ''">#{sopDescription},</if>
+            <if test="sopUrl != null and sopUrl != ''">#{sopUrl},</if>
+            <if test="enableFlag != null and enableFlag != ''">#{enableFlag},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改产品SOP：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.md.entity.MdProductSop">
+        update md_product_sop
+        <set>
+            <if test="itemId != null">item_id = #{itemId},</if>
+            <if test="orderNum != null">order_num = #{orderNum},</if>
+            <if test="processId != null">process_id = #{processId},</if>
+            <if test="processCode != null and processCode != ''">process_code = #{processCode},</if>
+            <if test="processName != null and processName != ''">process_name = #{processName},</if>
+            <if test="sopTitle != null and sopTitle != ''">sop_title = #{sopTitle},</if>
+            <if test="sopDescription != null and sopDescription != ''">sop_description = #{sopDescription},</if>
+            <if test="sopUrl != null and sopUrl != ''">sop_url = #{sopUrl},</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag = #{enableFlag},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where sop_id = #{sopId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除产品SOP：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update md_product_sop set del_flag = '1'
+        where sop_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量删除：同样走逻辑删除，一次把多个 id 的 del_flag 置为 1 -->
+    <update id="deleteBatch">
+        update md_product_sop set del_flag = '1'
+        where del_flag = '0'
+          and sop_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 多条件查询产品SOP：条件为空则该字段不参与过滤；始终只查未删除的数据
+         编码 / 名称类字段走模糊查询，状态标志、ID 类字段走精确匹配。 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.md.entity.MdProductSop" resultMap="MdProductSopResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_product_sop
+        <where>
+            del_flag = '0'
+            <if test="sopId != null">and sop_id = #{sopId}</if>
+            <if test="itemId != null">and item_id = #{itemId}</if>
+            <if test="orderNum != null">and order_num = #{orderNum}</if>
+            <if test="processId != null">and process_id = #{processId}</if>
+            <if test="processCode != null and processCode != ''">and process_code like concat('%', #{processCode}, '%')</if>
+            <if test="processName != null and processName != ''">and process_name like concat('%', #{processName}, '%')</if>
+            <if test="sopTitle != null and sopTitle != ''">and sop_title like concat('%', #{sopTitle}, '%')</if>
+            <if test="sopDescription != null and sopDescription != ''">and sop_description like concat('%', #{sopDescription}, '%')</if>
+            <if test="sopUrl != null and sopUrl != ''">and sop_url = #{sopUrl}</if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+            <if test="remark != null and remark != ''">and remark like concat('%', #{remark}, '%')</if>
+        </where>
+        order by order_num asc, sop_id asc
+    </select>
+
+    <!-- 按所属ID查询子表列表 -->
+    <select id="selectByItemId" resultMap="MdProductSopResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_product_sop
+        <where>
+            del_flag = '0'
+            and item_id = #{itemId}
+        </where>
+        order by order_num asc, sop_id asc
+    </select>
+
+    <!-- 根据ID查询单条
+         这里必须包 <where>：MyBatis 的 <where> 会自动处理首个 and 的去留，
+         不包的话 from 后面直接跟条件、没有 where 关键字，MySQL 直接报语法错误。 -->
+    <select id="selectById" resultMap="MdProductSopResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_product_sop
+        <where>
+            del_flag = '0'
+            and sop_id = #{id}
+        </where>
+    </select>
+
+</mapper>

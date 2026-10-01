@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.elevn.mes.sys.mapper.SysCodingRuleMapper">
+
+    <!-- sys_coding_rules 表字段与实体属性的映射 -->
+    <resultMap id="SysCodingRuleResultMap" type="com.elevn.mes.sys.entity.SysCodingRule">
+        <id column="rule_id" property="ruleId"/>
+        <result column="rule_title" property="ruleTitle"/>
+        <result column="rule_desc" property="ruleDesc"/>
+        <result column="prefix" property="prefix"/>
+        <result column="date_str" property="dateStr"/>
+        <result column="serial_number" property="serialNumber"/>
+        <result column="number_length" property="numberLength"/>
+        <result column="creat_time" property="createTime"/>
+        <result column="status" property="status"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="create_by" property="createBy"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        rule_id,rule_code,rule_title,rule_desc,prefix,date_str,
+       serial_number,number_length,creat_time,status,del_flag,create_by,update_by,update_time
+    </sql>
+
+    <!-- 新增字典数据：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.sys.entity.SysCodingRule" useGeneratedKeys="true" keyColumn="rule_id" keyProperty="ruleId">
+        insert into sys_coding_rules
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="ruleTitle != null and ruleTitle != ''">rule_title,</if>
+            <if test="ruleCode !=null and ruleCode != ''">rule_code,</if>
+            <if test="ruleDesc != null and ruleDesc != ''">rule_desc,</if>
+            <if test="prefix != null and prefix != ''">prefix,</if>
+            <if test="dateStr != null">date_str,</if>
+            <if test="serialNumber != null and serialNumber != ''">serial_number,</if>
+            <if test="numberLength != null and numberLength != ''">number_length,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <!-- 注意：这张表的建表脚本里列名少了一个 e，真名是 creat_time，不是 create_time。
+                 写错会报 1054 Unknown column 'create_time'，别按常规习惯改回来。 -->
+            <if test="createTime != null">creat_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="ruleTitle != null and ruleTitle != ''">#{ruleTitle},</if>
+            <if test="ruleCode !=null and ruleCode != ''">#{ruleCode},</if>
+            <if test="ruleDesc != null and ruleDesc != ''">#{ruleDesc},</if>
+            <if test="prefix != null and prefix != ''">#{prefix},</if>
+            <if test="dateStr != null">#{dateStr},</if>
+            <if test="serialNumber != null and serialNumber != ''">#{serialNumber},</if>
+            <if test="numberLength != null and numberLength != ''">#{numberLength},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改字典数据：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.sys.entity.SysCodingRule">
+        update sys_coding_rules
+        <set>
+            <if test="ruleTitle != null and ruleTitle != ''">rule_title = #{ruleTitle},</if>
+            <if test="ruleCode != null and ruleCode != ''">rule_code = #{ruleCode},</if>
+            <if test="ruleDesc != null and ruleDesc != ''">rule_desc = #{ruleDesc},</if>
+            <if test="prefix != null and prefix != ''">prefix = #{prefix},</if>
+            <if test="dateStr != null">date_str = #{dateStr},</if>
+            <if test="serialNumber != null and serialNumber != ''">serial_number = #{serialNumber},</if>
+            <if test="numberLength != null and numberLength != ''">number_length = #{numberLength},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where rule_id = #{ruleId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除字典数据：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update sys_coding_rules set del_flag = '1'
+        where rule_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 多条件查询字典数据：条件为空则该字段不参与过滤；始终只查未删除的数据 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.sys.entity.SysCodingRule" resultMap="SysCodingRuleResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_coding_rules
+        <where>
+            del_flag = '0'
+            <if test="ruleId != null">and rule_id = #{ruleId}</if>
+            <if test="ruleTitle != null and ruleTitle != ''">and rule_title = #{ruleTitle}</if>
+            <if test="ruleDesc != null and ruleDesc != ''">and rule_desc like concat('%', #{ruleDesc}, '%')</if>
+            <if test="prefix != null and prefix != ''">and prefix = #{prefix}</if>
+            <if test="serialNumber != null and serialNumber != ''">and serial_number = #{serialNumber}</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+        </where>
+        order by date_str asc
+    </select>
+
+    <!-- 根据规则编码查询 -->
+    <select id="selectByRuleCode" resultMap="SysCodingRuleResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_coding_rules
+            where
+            del_flag = '0'
+            and rule_code = #{ruleCode}
+        order by date_str asc
+    </select>
+
+    <!--
+        序列号原子自增（取号用）
+        交给数据库一条语句完成，靠行锁保证并发下不会两个单据拿到同一个流水号。
+    -->
+    <update id="incrementSerialNumber">
+        update sys_coding_rules
+        set serial_number = ifnull(serial_number, 0) + 1
+        where rule_code = #{ruleCode}
+          and del_flag = '0'
+    </update>
+
+    <select id="selectById" resultMap="SysCodingRuleResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_coding_rules
+        <where>
+            del_flag = '0'
+            and rule_id = #{id}
+        </where>
+    </select>
+
+</mapper>

@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    仓储通知单（wm_notice）
+    3 类合一：ARRIVAL 到货 / SALES 发货 / MATERIAL_REQUEST 备料申请。
+
+
+    【通知单不动库存】
+      它是预告 + 触发检验 + 下游单据的来源，库存只有 wm_doc 过账才会变。
+      所以这个文件里没有任何碰 wm_material_stock 的语句。
+
+    【updateById 刻意排除 notice_type / notice_code / status】
+      前两个是身份，改了行与下游单据就对不上；
+      status 只能由"触发检验"这个动作推进（updateStatus），
+      放开在普通修改里，前端就能把状态改成已报检而实际没报。
+
+    【中文类型名用标量子查询】
+      和 wm_doc 一个套路：查 sys_dict_data 里 wm_notice_type 的 dict_label。
+      必须写全 wm_notice.notice_type，否则子查询里的 notice_type 会有歧义。
+-->
+<mapper namespace="com.elevn.mes.wm.mapper.WmNoticeMapper">
+
+    <!-- wm_notice 表字段与实体属性的映射 -->
+    <resultMap id="WmNoticeResultMap" type="com.elevn.mes.wm.entity.WmNotice">
+        <id column="notice_id" property="noticeId"/>
+        <result column="notice_type" property="noticeType"/>
+        <result column="notice_code" property="noticeCode"/>
+        <result column="notice_name" property="noticeName"/>
+        <result column="po_code" property="poCode"/>
+        <result column="so_code" property="soCode"/>
+        <result column="partner_type" property="partnerType"/>
+        <result column="partner_id" property="partnerId"/>
+        <result column="partner_code" property="partnerCode"/>
+        <result column="partner_name" property="partnerName"/>
+        <result column="partner_nick" property="partnerNick"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="workorder_code" property="workorderCode"/>
+        <result column="workstation_id" property="workstationId"/>
+        <result column="workstation_code" property="workstationCode"/>
+        <result column="workstation_name" property="workstationName"/>
+        <result column="applicant_id" property="applicantId"/>
+        <result column="applicant_name" property="applicantName"/>
+        <result column="applicant_nick" property="applicantNick"/>
+        <result column="request_time" property="requestTime"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="notice_date" property="noticeDate"/>
+        <result column="contact" property="contact"/>
+        <result column="tel" property="tel"/>
+        <result column="address" property="address"/>
+        <result column="status" property="status"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <!-- 非表字段：字典带出的中文类型名 -->
+        <result column="notice_type_name" property="noticeTypeName"/>
+    </resultMap>
+
+    <!-- 公共字段列表 -->
+    <sql id="Base_Column_List">
+        notice_id, notice_type, notice_code, notice_name, po_code, so_code,
+        partner_type, partner_id, partner_code, partner_name, partner_nick,
+        workorder_id, workorder_code, workstation_id, workstation_code, workstation_name,
+        applicant_id, applicant_name, applicant_nick,
+        request_time, start_time, end_time, notice_date,
+        contact, tel, address, status, del_flag, remark,
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 通知类型中文名（标量子查询，取字典 wm_notice_type 的 label） -->
+    <sql id="Notice_Type_Name_Column">
+        (select d.dict_label from sys_dict_data d
+          where d.dict_type = 'wm_notice_type'
+            and d.dict_value = wm_notice.notice_type
+            and d.del_flag = '0'
+          limit 1) as notice_type_name
+    </sql>
+
+    <!-- 新增通知单 -->
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmNotice"
+            useGeneratedKeys="true" keyProperty="noticeId">
+        insert into wm_notice
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="noticeType != null and noticeType != ''">notice_type,</if>
+            <if test="noticeCode != null and noticeCode != ''">notice_code,</if>
+            <if test="noticeName != null and noticeName != ''">notice_name,</if>
+            <if test="poCode != null and poCode != ''">po_code,</if>
+            <if test="soCode != null and soCode != ''">so_code,</if>
+            <if test="partnerType != null and partnerType != ''">partner_type,</if>
+            <if test="partnerId != null">partner_id,</if>
+            <if test="partnerCode != null and partnerCode != ''">partner_code,</if>
+            <if test="partnerName != null and partnerName != ''">partner_name,</if>
+            <if test="partnerNick != null and partnerNick != ''">partner_nick,</if>
+            <if test="workorderId != null">workorder_id,</if>
+            <if test="workorderCode != null and workorderCode != ''">workorder_code,</if>
+            <if test="workstationId != null">workstation_id,</if>
+            <if test="workstationCode != null and workstationCode != ''">workstation_code,</if>
+            <if test="workstationName != null and workstationName != ''">workstation_name,</if>
+            <if test="applicantId != null">applicant_id,</if>
+            <if test="applicantName != null and applicantName != ''">applicant_name,</if>
+            <if test="applicantNick != null and applicantNick != ''">applicant_nick,</if>
+            <if test="requestTime != null">request_time,</if>
+            <if test="startTime != null">start_time,</if>
+            <if test="endTime != null">end_time,</if>
+            <if test="noticeDate != null">notice_date,</if>
+            <if test="contact != null and contact != ''">contact,</if>
+            <if test="tel != null and tel != ''">tel,</if>
+            <if test="address != null and address != ''">address,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="noticeType != null and noticeType != ''">#{noticeType},</if>
+            <if test="noticeCode != null and noticeCode != ''">#{noticeCode},</if>
+            <if test="noticeName != null and noticeName != ''">#{noticeName},</if>
+            <if test="poCode != null and poCode != ''">#{poCode},</if>
+            <if test="soCode != null and soCode != ''">#{soCode},</if>
+            <if test="partnerType != null and partnerType != ''">#{partnerType},</if>
+            <if test="partnerId != null">#{partnerId},</if>
+            <if test="partnerCode != null and partnerCode != ''">#{partnerCode},</if>
+            <if test="partnerName != null and partnerName != ''">#{partnerName},</if>
+            <if test="partnerNick != null and partnerNick != ''">#{partnerNick},</if>
+            <if test="workorderId != null">#{workorderId},</if>
+            <if test="workorderCode != null and workorderCode != ''">#{workorderCode},</if>
+            <if test="workstationId != null">#{workstationId},</if>
+            <if test="workstationCode != null and workstationCode != ''">#{workstationCode},</if>
+            <if test="workstationName != null and workstationName != ''">#{workstationName},</if>
+            <if test="applicantId != null">#{applicantId},</if>
+            <if test="applicantName != null and applicantName != ''">#{applicantName},</if>
+            <if test="applicantNick != null and applicantNick != ''">#{applicantNick},</if>
+            <if test="requestTime != null">#{requestTime},</if>
+            <if test="startTime != null">#{startTime},</if>
+            <if test="endTime != null">#{endTime},</if>
+            <if test="noticeDate != null">#{noticeDate},</if>
+            <if test="contact != null and contact != ''">#{contact},</if>
+            <if test="tel != null and tel != ''">#{tel},</if>
+            <if test="address != null and address != ''">#{address},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改：只更新非 null 字段；notice_type / notice_code / status 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmNotice">
+        update wm_notice
+        <set>
+            <if test="noticeName != null">notice_name = #{noticeName},</if>
+            <if test="poCode != null">po_code = #{poCode},</if>
+            <if test="soCode != null">so_code = #{soCode},</if>
+            <if test="partnerType != null">partner_type = #{partnerType},</if>
+            <if test="partnerId != null">partner_id = #{partnerId},</if>
+            <if test="partnerCode != null">partner_code = #{partnerCode},</if>
+            <if test="partnerName != null">partner_name = #{partnerName},</if>
+            <if test="partnerNick != null">partner_nick = #{partnerNick},</if>
+            <if test="workorderId != null">workorder_id = #{workorderId},</if>
+            <if test="workorderCode != null">workorder_code = #{workorderCode},</if>
+            <if test="workstationId != null">workstation_id = #{workstationId},</if>
+            <if test="workstationCode != null">workstation_code = #{workstationCode},</if>
+            <if test="workstationName != null">workstation_name = #{workstationName},</if>
+            <if test="applicantId != null">applicant_id = #{applicantId},</if>
+            <if test="applicantName != null">applicant_name = #{applicantName},</if>
+            <if test="applicantNick != null">applicant_nick = #{applicantNick},</if>
+            <if test="requestTime != null">request_time = #{requestTime},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="noticeDate != null">notice_date = #{noticeDate},</if>
+            <if test="contact != null">contact = #{contact},</if>
+            <if test="tel != null">tel = #{tel},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where notice_id = #{noticeId}
+        and del_flag = '0'
+        and status = 'PREPARE'
+    </update>
+
+    <!-- 回填通知单编号 -->
+    <update id="updateNoticeCode" parameterType="com.elevn.mes.wm.entity.WmNotice">
+        update wm_notice set notice_code = #{noticeCode}
+        where notice_id = #{noticeId}
+    </update>
+
+    <!-- 推进状态：PREPARE → CONFIRMED（触发检验后） -->
+    <update id="updateStatus">
+        update wm_notice
+        set status = #{status}, update_time = now()
+        where notice_id = #{noticeId}
+          and del_flag = '0'
+          and status = 'PREPARE'
+    </update>
+
+    <!-- 根据ID逻辑删除 -->
+    <delete id="deleteById">
+        update wm_notice set del_flag = '1'
+        where notice_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量逻辑删除 -->
+    <update id="deleteBatch">
+        update wm_notice set del_flag = '1'
+        where del_flag = '0'
+          and notice_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 根据ID查询单条 -->
+    <select id="selectById" resultMap="WmNoticeResultMap">
+        select
+        <include refid="Base_Column_List"/>,
+        <include refid="Notice_Type_Name_Column"/>
+        from wm_notice
+        <where>
+            wm_notice.del_flag = '0'
+            and wm_notice.notice_id = #{id}
+        </where>
+    </select>
+
+    <!-- 通知单编号唯一性校验（唯一键是 notice_type + notice_code 的组合） -->
+    <select id="selectByTypeAndCode" resultMap="WmNoticeResultMap">
+        select
+        <include refid="Base_Column_List"/>,
+        <include refid="Notice_Type_Name_Column"/>
+        from wm_notice
+        <where>
+            wm_notice.del_flag = '0'
+            and wm_notice.notice_type = #{noticeType}
+            and wm_notice.notice_code = #{noticeCode}
+        </where>
+        limit 1
+    </select>
+
+    <!-- 多条件查询通知单列表（必带 noticeType） -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmNotice"
+            resultMap="WmNoticeResultMap">
+        select
+        <include refid="Base_Column_List"/>,
+        <include refid="Notice_Type_Name_Column"/>
+        from wm_notice
+        <where>
+            wm_notice.del_flag = '0'
+            <if test="noticeType != null and noticeType != ''">and wm_notice.notice_type = #{noticeType}</if>
+            <if test="noticeCode != null and noticeCode != ''">
+                and wm_notice.notice_code like concat('%', #{noticeCode}, '%')
+            </if>
+            <if test="noticeName != null and noticeName != ''">
+                and wm_notice.notice_name like concat('%', #{noticeName}, '%')
+            </if>
+            <if test="status != null and status != ''">and wm_notice.status = #{status}</if>
+            <if test="partnerType != null and partnerType != ''">and wm_notice.partner_type = #{partnerType}</if>
+            <if test="partnerId != null">and wm_notice.partner_id = #{partnerId}</if>
+            <if test="partnerName != null and partnerName != ''">
+                and wm_notice.partner_name like concat('%', #{partnerName}, '%')
+            </if>
+            <if test="poCode != null and poCode != ''">
+                and wm_notice.po_code like concat('%', #{poCode}, '%')
+            </if>
+            <if test="soCode != null and soCode != ''">
+                and wm_notice.so_code like concat('%', #{soCode}, '%')
+            </if>
+            <if test="workorderId != null">and wm_notice.workorder_id = #{workorderId}</if>
+            <if test="workorderCode != null and workorderCode != ''">
+                and wm_notice.workorder_code like concat('%', #{workorderCode}, '%')
+            </if>
+            <if test="noticeDateStart != null">and wm_notice.notice_date &gt;= #{noticeDateStart}</if>
+            <if test="noticeDateEnd != null">and wm_notice.notice_date &lt;= #{noticeDateEnd}</if>
+        </where>
+        order by wm_notice.notice_id desc
+    </select>
+
+</mapper>

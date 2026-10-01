@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.elevn.mes.sys.mapper.SysUserMapper">
+
+    <!-- sys_user 表字段与实体属性的映射 -->
+    <resultMap id="SysUserResultMap" type="com.elevn.mes.sys.entity.SysUser">
+        <id column="user_id" property="userId"/>
+        <result column="dept_id" property="deptId"/>
+        <result column="post_id" property="postId"/>
+        <result column="user_name" property="userName"/>
+        <result column="nick_name" property="nickName"/>
+        <result column="user_type" property="userType"/>
+        <result column="email" property="email"/>
+        <result column="phonenumber" property="phonenumber"/>
+        <result column="sex" property="sex"/>
+        <result column="avatar" property="avatar"/>
+        <result column="password" property="password"/>
+        <result column="status" property="status"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="login_ip" property="loginIp"/>
+        <result column="login_date" property="loginDate"/>
+        <result column="pwd_update_date" property="pwdUpdateDate"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="remark" property="remark"/>
+    </resultMap>
+
+    <!--
+        这个 resultMap 专门给「列表查询」用，在基础映射之上多加三个展示用字段。
+        用 extends 继承而不是复制一遍：基础字段以后改了只需要改一个地方。
+        dept_name / post_name / role_names 只存在于关联查询的结果集里，
+        selectById 那些不带 join 的语句继续用上面的 SysUserResultMap，
+        两边互不影响（MyBatis 对结果集里没有的列会直接跳过，不会报错）。
+    -->
+    <resultMap id="SysUserJoinResultMap" type="com.elevn.mes.sys.entity.SysUser" extends="SysUserResultMap">
+        <result column="dept_name" property="deptName"/>
+        <result column="post_name" property="postName"/>
+        <result column="role_names" property="roleNames"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        user_id, dept_id, post_id, user_name, nick_name,
+        user_type, email, phonenumber, sex, avatar,
+        password, status, del_flag, login_ip, login_date,
+        pwd_update_date, create_by, create_time, update_by, update_time,
+        remark
+    </sql>
+
+    <!--
+        关联查询专用的列清单，比 Base_Column_List 多了三样东西：
+          1. 所有列都带 u. 前缀
+          2. join 部门表、岗位表取名称
+          3. 子查询聚合角色名称
+
+        【坑】为什么必须带 u. 前缀？
+        sys_user / sys_dept / sys_post 三张表都有 create_time、update_time、remark、del_flag 这些公共列，
+        join 之后如果裸写 create_time，MySQL 不知道你要哪张表的，直接报
+        「1052 Column 'create_time' in field list is ambiguous」。
+        所以只要语句里带了 join，列名就一律写全别名。
+
+        【角色为什么用子查询而不是 join？】
+        一个用户可能有多个角色，如果 join sys_user_role，用户行会被复制成多行 →
+        分页总数会虚高，PageHelper 的 count 也跟着错。
+        用 group_concat 子查询把它压成一列，主表仍然是一行一个用户，分页才准。
+    -->
+    <sql id="Select_Join_Column_List">
+        u.user_id, u.dept_id, u.post_id, u.user_name, u.nick_name,
+        u.user_type, u.email, u.phonenumber, u.sex, u.avatar,
+        u.password, u.status, u.del_flag, u.login_ip, u.login_date,
+        u.pwd_update_date, u.create_by, u.create_time, u.update_by, u.update_time,
+        u.remark,
+        d.dept_name as dept_name,
+        p.post_name as post_name,
+        (select group_concat(r.role_name)
+           from sys_user_role ur
+           join sys_role r on r.role_id = ur.role_id and r.del_flag = '0'
+          where ur.user_id = u.user_id and ur.del_flag = '0') as role_names
+    </sql>
+
+    <!-- 新增用户：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.sys.entity.SysUser" useGeneratedKeys="true" keyProperty="userId">
+        insert into sys_user
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="deptId != null">dept_id,</if>
+            <if test="postId != null">post_id,</if>
+            <if test="userName != null and userName != ''">user_name,</if>
+            <if test="nickName != null and nickName != ''">nick_name,</if>
+            <if test="userType != null and userType != ''">user_type,</if>
+            <if test="email != null and email != ''">email,</if>
+            <if test="phonenumber != null and phonenumber != ''">phonenumber,</if>
+            <if test="sex != null and sex != ''">sex,</if>
+            <if test="avatar != null and avatar != ''">avatar,</if>
+            <if test="password != null and password != ''">password,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="loginIp != null and loginIp != ''">login_ip,</if>
+            <if test="loginDate != null">login_date,</if>
+            <if test="pwdUpdateDate != null">pwd_update_date,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="deptId != null">#{deptId},</if>
+            <if test="postId != null">#{postId},</if>
+            <if test="userName != null and userName != ''">#{userName},</if>
+            <if test="nickName != null and nickName != ''">#{nickName},</if>
+            <if test="userType != null and userType != ''">#{userType},</if>
+            <if test="email != null and email != ''">#{email},</if>
+            <if test="phonenumber != null and phonenumber != ''">#{phonenumber},</if>
+            <if test="sex != null and sex != ''">#{sex},</if>
+            <if test="avatar != null and avatar != ''">#{avatar},</if>
+            <if test="password != null and password != ''">#{password},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="loginIp != null and loginIp != ''">#{loginIp},</if>
+            <if test="loginDate != null">#{loginDate},</if>
+            <if test="pwdUpdateDate != null">#{pwdUpdateDate},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改用户：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.sys.entity.SysUser">
+        update sys_user
+        <set>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="postId != null">post_id = #{postId},</if>
+            <if test="userName != null and userName != ''">user_name = #{userName},</if>
+            <if test="nickName != null and nickName != ''">nick_name = #{nickName},</if>
+            <if test="userType != null and userType != ''">user_type = #{userType},</if>
+            <if test="email != null and email != ''">email = #{email},</if>
+            <if test="phonenumber != null and phonenumber != ''">phonenumber = #{phonenumber},</if>
+            <if test="sex != null and sex != ''">sex = #{sex},</if>
+            <if test="avatar != null and avatar != ''">avatar = #{avatar},</if>
+            <if test="password != null and password != ''">password = #{password},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="loginIp != null and loginIp != ''">login_ip = #{loginIp},</if>
+            <if test="loginDate != null">login_date = #{loginDate},</if>
+            <if test="pwdUpdateDate != null">pwd_update_date = #{pwdUpdateDate},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+        </set>
+        where user_id = #{userId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除用户：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update sys_user set del_flag = '1'
+        where user_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 多条件查询用户：条件为空则该字段不参与过滤；始终只查未删除的数据
+         列表要用到部门名称 / 岗位名称 / 角色名称，所以这里带了 join，列名一律写 u. / d. / p. 前缀 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.sys.entity.SysUser" resultMap="SysUserJoinResultMap">
+        select
+        <include refid="Select_Join_Column_List"/>
+        from sys_user u
+        left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0'
+        left join sys_post p on p.post_id = u.post_id and p.del_flag = '0'
+        <where>
+            u.del_flag = '0'
+            <if test="userId != null">and u.user_id = #{userId}</if>
+            <if test="userName != null and userName != ''">and u.user_name like concat('%', #{userName}, '%')</if>
+            <if test="nickName != null and nickName != ''">and u.nick_name like concat('%', #{nickName}, '%')</if>
+            <if test="phonenumber != null and phonenumber != ''">and u.phonenumber = #{phonenumber}</if>
+            <if test="status != null and status != ''">and u.status = #{status}</if>
+            <if test="deptId != null">and u.dept_id = #{deptId}</if>
+            <if test="postId != null">and u.post_id = #{postId}</if>
+            <if test="sex != null and sex != ''">and u.sex = #{sex}</if>
+        </where>
+        order by u.user_id asc
+    </select>
+
+    <!-- 根据登录账号查询用户 -->
+    <select id="selectByUserName" resultMap="SysUserResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_user
+        <where>
+            del_flag = '0'
+            <if test="userName != null and userName != ''">and user_name = #{userName}</if>
+        </where>
+        limit 1
+    </select>
+    <select id="selectById" resultMap="SysUserResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_user
+        where del_flag = '0' and user_id = #{id}
+    </select>
+
+</mapper>

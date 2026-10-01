@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    设备表
+
+
+    说明：本次只提供选料下拉需要的查询语句。
+          增删改等语句由设备模块（dv 线）的同学按 md 模块的风格自己补。
+-->
+<mapper namespace="com.elevn.mes.dv.mapper.DvMachineryMapper">
+
+    <!-- dv_machinery 表字段与实体属性的映射 -->
+    <resultMap id="DvMachineryResultMap" type="com.elevn.mes.dv.entity.DvMachinery">
+        <id column="machinery_id" property="machineryId"/>
+        <result column="machinery_code" property="machineryCode"/>
+        <result column="machinery_name" property="machineryName"/>
+        <result column="machinery_brand" property="machineryBrand"/>
+        <result column="machinery_spec" property="machinerySpec"/>
+        <result column="machinery_type_id" property="machineryTypeId"/>
+        <result column="machinery_type_code" property="machineryTypeCode"/>
+        <result column="machinery_type_name" property="machineryTypeName"/>
+        <result column="workshop_id" property="workshopId"/>
+        <result column="workshop_code" property="workshopCode"/>
+        <result column="workshop_name" property="workshopName"/>
+        <result column="last_mainten_time" property="lastMaintenTime"/>
+        <result column="last_check_time" property="lastCheckTime"/>
+        <result column="status" property="status"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        machinery_id, machinery_code, machinery_name, machinery_brand, machinery_spec,
+        machinery_type_id, machinery_type_code, machinery_type_name,
+        workshop_id, workshop_code, workshop_name,
+        last_mainten_time, last_check_time, status,
+        del_flag, remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 多条件查询设备：条件为空则该字段不参与过滤；始终只查未删除的数据
+         编码 / 名称类字段走模糊查询，ID、状态类字段走精确匹配。 -->
+    <select id="selectByCondition" resultMap="DvMachineryResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from dv_machinery
+        <where>
+            del_flag = '0'
+            <if test="dvMachinery != null">
+                <if test="dvMachinery.machineryId != null">and machinery_id = #{dvMachinery.machineryId}</if>
+                <if test="dvMachinery.machineryCode != null and dvMachinery.machineryCode != ''">and machinery_code like concat('%', #{dvMachinery.machineryCode}, '%')</if>
+                <if test="dvMachinery.machineryName != null and dvMachinery.machineryName != ''">and machinery_name like concat('%', #{dvMachinery.machineryName}, '%')</if>
+                <if test="dvMachinery.machineryTypeId != null">and machinery_type_id = #{dvMachinery.machineryTypeId}</if>
+                <if test="dvMachinery.workshopId != null">and workshop_id = #{dvMachinery.workshopId}</if>
+                <if test="dvMachinery.status != null and dvMachinery.status != ''">and status = #{dvMachinery.status}</if>
+                <if test="dvMachinery.remark != null and dvMachinery.remark != ''">and remark like concat('%', #{dvMachinery.remark}, '%')</if>
+            </if>
+        </where>
+        order by machinery_id asc
+    </select>
+
+    <!-- 根据ID查询单条
+         这里必须包 <where>：MyBatis 的 <where> 会自动处理首个 and 的去留，
+         不包的话 from 后面直接跟条件、没有 where 关键字，MySQL 直接报语法错误。 -->
+    <select id="selectById" resultMap="DvMachineryResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from dv_machinery
+        <where>
+            del_flag = '0'
+            and machinery_id = #{id}
+        </where>
+    </select>
+
+</mapper>

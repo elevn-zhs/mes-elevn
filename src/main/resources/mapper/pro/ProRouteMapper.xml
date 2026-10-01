@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    工艺路线
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProRouteMapper">
+
+    <!-- pro_route 表字段与实体属性的映射 -->
+    <resultMap id="ProRouteResultMap" type="com.elevn.mes.pro.entity.ProRoute">
+        <id column="route_id" property="routeId"/>
+        <result column="route_code" property="routeCode"/>
+        <result column="route_name" property="routeName"/>
+        <result column="route_desc" property="routeDesc"/>
+        <result column="enable_flag" property="enableFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        route_id, route_code, route_name, route_desc, enable_flag,
+        del_flag, remark, create_by, create_time, update_by,
+        update_time
+    </sql>
+
+    <!-- 新增工艺路线：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.pro.entity.ProRoute" useGeneratedKeys="true" keyProperty="routeId">
+        insert into pro_route
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="routeCode != null and routeCode != ''">route_code,</if>
+            <if test="routeName != null and routeName != ''">route_name,</if>
+            <if test="routeDesc != null and routeDesc != ''">route_desc,</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="routeCode != null and routeCode != ''">#{routeCode},</if>
+            <if test="routeName != null and routeName != ''">#{routeName},</if>
+            <if test="routeDesc != null and routeDesc != ''">#{routeDesc},</if>
+            <if test="enableFlag != null and enableFlag != ''">#{enableFlag},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改工艺路线：只更新非 null 字段 -->
+    <update id="updateById" parameterType="com.elevn.mes.pro.entity.ProRoute">
+        update pro_route
+        <set>
+            <if test="routeCode != null and routeCode != ''">route_code = #{routeCode},</if>
+            <if test="routeName != null and routeName != ''">route_name = #{routeName},</if>
+            <if test="routeDesc != null">route_desc = #{routeDesc},</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag = #{enableFlag},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where route_id = #{routeId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除工艺路线：逻辑删除 -->
+    <delete id="deleteById">
+        update pro_route set del_flag = '1'
+        where route_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量删除：同样走逻辑删除 -->
+    <update id="deleteBatch">
+        update pro_route set del_flag = '1'
+        where del_flag = '0'
+          and route_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 多条件查询工艺路线：条件为空则该字段不参与过滤 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.pro.entity.ProRoute" resultMap="ProRouteResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_route
+        <where>
+            del_flag = '0'
+            <if test="routeId != null">and route_id = #{routeId}</if>
+            <if test="routeCode != null and routeCode != ''">and route_code like concat('%', #{routeCode}, '%')</if>
+            <if test="routeName != null and routeName != ''">and route_name like concat('%', #{routeName}, '%')</if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+            <if test="remark != null and remark != ''">and remark like concat('%', #{remark}, '%')</if>
+        </where>
+        order by route_id asc
+    </select>
+
+    <!-- 根据编码查询（校验编码重复用） -->
+    <select id="selectByRouteCode" resultMap="ProRouteResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_route
+        <where>
+            del_flag = '0'
+            and route_code = #{routeCode}
+        </where>
+        limit 1
+    </select>
+
+    <!-- 根据ID查询单条 -->
+    <select id="selectById" resultMap="ProRouteResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_route
+        <where>
+            del_flag = '0'
+            and route_id = #{id}
+        </where>
+    </select>
+
+    <!-- 统计路线被产品制程引用的次数（L3 删除检查用） -->
+    <select id="selectReferenceCount" resultType="int">
+        select count(1) from pro_route_product
+        where del_flag = '0'
+          and route_id = #{routeId}
+    </select>
+
+    <!-- 查询全部启用的路线 -->
+    <select id="selectAllEnabled" resultMap="ProRouteResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_route
+        <where>
+            del_flag = '0'
+            and enable_flag = 'Y'
+        </where>
+        order by route_id asc
+    </select>
+
+</mapper>

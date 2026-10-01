@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    车间
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+-->
+<mapper namespace="com.elevn.mes.md.mapper.MdWorkshopMapper">
+
+    <!-- md_workshop 表字段与实体属性的映射 -->
+    <resultMap id="MdWorkshopResultMap" type="com.elevn.mes.md.entity.MdWorkshop">
+        <id column="workshop_id" property="workshopId"/>
+        <result column="workshop_code" property="workshopCode"/>
+        <result column="workshop_name" property="workshopName"/>
+        <result column="area" property="area"/>
+        <result column="charge" property="charge"/>
+        <result column="enable_flag" property="enableFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        workshop_id, workshop_code, workshop_name, area, charge,
+        enable_flag, del_flag, remark, create_by, create_time,
+        update_by, update_time
+    </sql>
+
+    <!-- 新增车间：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.md.entity.MdWorkshop" useGeneratedKeys="true" keyProperty="workshopId">
+        insert into md_workshop
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="workshopCode != null and workshopCode != ''">workshop_code,</if>
+            <if test="workshopName != null and workshopName != ''">workshop_name,</if>
+            <if test="area != null">area,</if>
+            <if test="charge != null and charge != ''">charge,</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="workshopCode != null and workshopCode != ''">#{workshopCode},</if>
+            <if test="workshopName != null and workshopName != ''">#{workshopName},</if>
+            <if test="area != null">#{area},</if>
+            <if test="charge != null and charge != ''">#{charge},</if>
+            <if test="enableFlag != null and enableFlag != ''">#{enableFlag},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改车间：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.md.entity.MdWorkshop">
+        update md_workshop
+        <set>
+            <if test="workshopCode != null and workshopCode != ''">workshop_code = #{workshopCode},</if>
+            <if test="workshopName != null and workshopName != ''">workshop_name = #{workshopName},</if>
+            <if test="area != null">area = #{area},</if>
+            <if test="charge != null and charge != ''">charge = #{charge},</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag = #{enableFlag},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where workshop_id = #{workshopId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除车间：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update md_workshop set del_flag = '1'
+        where workshop_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量删除：同样走逻辑删除，一次把多个 id 的 del_flag 置为 1 -->
+    <update id="deleteBatch">
+        update md_workshop set del_flag = '1'
+        where del_flag = '0'
+          and workshop_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 多条件查询车间：条件为空则该字段不参与过滤；始终只查未删除的数据
+         编码 / 名称类字段走模糊查询，状态标志、ID 类字段走精确匹配。 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.md.entity.MdWorkshop" resultMap="MdWorkshopResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_workshop
+        <where>
+            del_flag = '0'
+            <if test="workshopId != null">and workshop_id = #{workshopId}</if>
+            <if test="workshopCode != null and workshopCode != ''">and workshop_code like concat('%', #{workshopCode}, '%')</if>
+            <if test="workshopName != null and workshopName != ''">and workshop_name like concat('%', #{workshopName}, '%')</if>
+            <if test="charge != null and charge != ''">and charge = #{charge}</if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+            <if test="remark != null and remark != ''">and remark like concat('%', #{remark}, '%')</if>
+        </where>
+        order by workshop_id asc
+    </select>
+
+    <!-- 根据编码查询（校验编码重复用） -->
+    <select id="selectByWorkshopCode" resultMap="MdWorkshopResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_workshop
+        <where>
+            del_flag = '0'
+            and workshop_code = #{workshopCode}
+        </where>
+        limit 1
+    </select>
+
+    <!-- 根据ID查询单条
+         这里必须包 <where>：MyBatis 的 <where> 会自动处理首个 and 的去留，
+         不包的话 from 后面直接跟条件、没有 where 关键字，MySQL 直接报语法错误。 -->
+    <select id="selectById" resultMap="MdWorkshopResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_workshop
+        <where>
+            del_flag = '0'
+            and workshop_id = #{id}
+        </where>
+    </select>
+
+</mapper>

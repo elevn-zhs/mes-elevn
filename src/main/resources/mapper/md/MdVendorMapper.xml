@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    供应商
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+-->
+<mapper namespace="com.elevn.mes.md.mapper.MdVendorMapper">
+
+    <!-- md_vendor 表字段与实体属性的映射 -->
+    <resultMap id="MdVendorResultMap" type="com.elevn.mes.md.entity.MdVendor">
+        <id column="vendor_id" property="vendorId"/>
+        <result column="vendor_code" property="vendorCode"/>
+        <result column="vendor_name" property="vendorName"/>
+        <result column="vendor_nick" property="vendorNick"/>
+        <result column="vendor_en" property="vendorEn"/>
+        <result column="vendor_des" property="vendorDes"/>
+        <result column="vendor_logo" property="vendorLogo"/>
+        <result column="vendor_level" property="vendorLevel"/>
+        <result column="vendor_score" property="vendorScore"/>
+        <result column="address" property="address"/>
+        <result column="website" property="website"/>
+        <result column="email" property="email"/>
+        <result column="tel" property="tel"/>
+        <result column="contact1" property="contact1"/>
+        <result column="contact1_tel" property="contact1Tel"/>
+        <result column="contact1_email" property="contact1Email"/>
+        <result column="contact2" property="contact2"/>
+        <result column="contact2_tel" property="contact2Tel"/>
+        <result column="contact2_email" property="contact2Email"/>
+        <result column="credit_code" property="creditCode"/>
+        <result column="enable_flag" property="enableFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        vendor_id, vendor_code, vendor_name, vendor_nick, vendor_en,
+        vendor_des, vendor_logo, vendor_level, vendor_score, address,
+        website, email, tel, contact1, contact1_tel,
+        contact1_email, contact2, contact2_tel, contact2_email, credit_code,
+        enable_flag, del_flag, remark, create_by, create_time,
+        update_by, update_time
+    </sql>
+
+    <!-- 新增供应商：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.md.entity.MdVendor" useGeneratedKeys="true" keyProperty="vendorId">
+        insert into md_vendor
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="vendorCode != null and vendorCode != ''">vendor_code,</if>
+            <if test="vendorName != null and vendorName != ''">vendor_name,</if>
+            <if test="vendorNick != null and vendorNick != ''">vendor_nick,</if>
+            <if test="vendorEn != null and vendorEn != ''">vendor_en,</if>
+            <if test="vendorDes != null and vendorDes != ''">vendor_des,</if>
+            <if test="vendorLogo != null and vendorLogo != ''">vendor_logo,</if>
+            <if test="vendorLevel != null and vendorLevel != ''">vendor_level,</if>
+            <if test="vendorScore != null">vendor_score,</if>
+            <if test="address != null and address != ''">address,</if>
+            <if test="website != null and website != ''">website,</if>
+            <if test="email != null and email != ''">email,</if>
+            <if test="tel != null and tel != ''">tel,</if>
+            <if test="contact1 != null and contact1 != ''">contact1,</if>
+            <if test="contact1Tel != null and contact1Tel != ''">contact1_tel,</if>
+            <if test="contact1Email != null and contact1Email != ''">contact1_email,</if>
+            <if test="contact2 != null and contact2 != ''">contact2,</if>
+            <if test="contact2Tel != null and contact2Tel != ''">contact2_tel,</if>
+            <if test="contact2Email != null and contact2Email != ''">contact2_email,</if>
+            <if test="creditCode != null and creditCode != ''">credit_code,</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="vendorCode != null and vendorCode != ''">#{vendorCode},</if>
+            <if test="vendorName != null and vendorName != ''">#{vendorName},</if>
+            <if test="vendorNick != null and vendorNick != ''">#{vendorNick},</if>
+            <if test="vendorEn != null and vendorEn != ''">#{vendorEn},</if>
+            <if test="vendorDes != null and vendorDes != ''">#{vendorDes},</if>
+            <if test="vendorLogo != null and vendorLogo != ''">#{vendorLogo},</if>
+            <if test="vendorLevel != null and vendorLevel != ''">#{vendorLevel},</if>
+            <if test="vendorScore != null">#{vendorScore},</if>
+            <if test="address != null and address != ''">#{address},</if>
+            <if test="website != null and website != ''">#{website},</if>
+            <if test="email != null and email != ''">#{email},</if>
+            <if test="tel != null and tel != ''">#{tel},</if>
+            <if test="contact1 != null and contact1 != ''">#{contact1},</if>
+            <if test="contact1Tel != null and contact1Tel != ''">#{contact1Tel},</if>
+            <if test="contact1Email != null and contact1Email != ''">#{contact1Email},</if>
+            <if test="contact2 != null and contact2 != ''">#{contact2},</if>
+            <if test="contact2Tel != null and contact2Tel != ''">#{contact2Tel},</if>
+            <if test="contact2Email != null and contact2Email != ''">#{contact2Email},</if>
+            <if test="creditCode != null and creditCode != ''">#{creditCode},</if>
+            <if test="enableFlag != null and enableFlag != ''">#{enableFlag},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改供应商：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.md.entity.MdVendor">
+        update md_vendor
+        <set>
+            <if test="vendorCode != null and vendorCode != ''">vendor_code = #{vendorCode},</if>
+            <if test="vendorName != null and vendorName != ''">vendor_name = #{vendorName},</if>
+            <if test="vendorNick != null and vendorNick != ''">vendor_nick = #{vendorNick},</if>
+            <if test="vendorEn != null and vendorEn != ''">vendor_en = #{vendorEn},</if>
+            <if test="vendorDes != null and vendorDes != ''">vendor_des = #{vendorDes},</if>
+            <if test="vendorLogo != null and vendorLogo != ''">vendor_logo = #{vendorLogo},</if>
+            <if test="vendorLevel != null and vendorLevel != ''">vendor_level = #{vendorLevel},</if>
+            <if test="vendorScore != null">vendor_score = #{vendorScore},</if>
+            <if test="address != null and address != ''">address = #{address},</if>
+            <if test="website != null and website != ''">website = #{website},</if>
+            <if test="email != null and email != ''">email = #{email},</if>
+            <if test="tel != null and tel != ''">tel = #{tel},</if>
+            <if test="contact1 != null and contact1 != ''">contact1 = #{contact1},</if>
+            <if test="contact1Tel != null and contact1Tel != ''">contact1_tel = #{contact1Tel},</if>
+            <if test="contact1Email != null and contact1Email != ''">contact1_email = #{contact1Email},</if>
+            <if test="contact2 != null and contact2 != ''">contact2 = #{contact2},</if>
+            <if test="contact2Tel != null and contact2Tel != ''">contact2_tel = #{contact2Tel},</if>
+            <if test="contact2Email != null and contact2Email != ''">contact2_email = #{contact2Email},</if>
+            <if test="creditCode != null and creditCode != ''">credit_code = #{creditCode},</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag = #{enableFlag},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where vendor_id = #{vendorId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除供应商：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update md_vendor set del_flag = '1'
+        where vendor_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量删除：同样走逻辑删除，一次把多个 id 的 del_flag 置为 1 -->
+    <update id="deleteBatch">
+        update md_vendor set del_flag = '1'
+        where del_flag = '0'
+          and vendor_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 多条件查询供应商：条件为空则该字段不参与过滤；始终只查未删除的数据
+         编码 / 名称类字段走模糊查询，状态标志、ID 类字段走精确匹配。 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.md.entity.MdVendor" resultMap="MdVendorResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_vendor
+        <where>
+            del_flag = '0'
+            <if test="vendorId != null">and vendor_id = #{vendorId}</if>
+            <if test="vendorCode != null and vendorCode != ''">and vendor_code like concat('%', #{vendorCode}, '%')</if>
+            <if test="vendorName != null and vendorName != ''">and vendor_name like concat('%', #{vendorName}, '%')</if>
+            <if test="vendorNick != null and vendorNick != ''">and vendor_nick like concat('%', #{vendorNick}, '%')</if>
+            <if test="vendorEn != null and vendorEn != ''">and vendor_en like concat('%', #{vendorEn}, '%')</if>
+            <if test="vendorDes != null and vendorDes != ''">and vendor_des like concat('%', #{vendorDes}, '%')</if>
+            <if test="vendorLogo != null and vendorLogo != ''">and vendor_logo like concat('%', #{vendorLogo}, '%')</if>
+            <if test="vendorLevel != null and vendorLevel != ''">and vendor_level like concat('%', #{vendorLevel}, '%')</if>
+            <if test="vendorScore != null">and vendor_score = #{vendorScore}</if>
+            <if test="address != null and address != ''">and address like concat('%', #{address}, '%')</if>
+            <if test="website != null and website != ''">and website = #{website}</if>
+            <if test="email != null and email != ''">and email = #{email}</if>
+            <if test="tel != null and tel != ''">and tel = #{tel}</if>
+            <if test="contact1 != null and contact1 != ''">and contact1 = #{contact1}</if>
+            <if test="contact1Tel != null and contact1Tel != ''">and contact1_tel = #{contact1Tel}</if>
+            <if test="contact1Email != null and contact1Email != ''">and contact1_email = #{contact1Email}</if>
+            <if test="contact2 != null and contact2 != ''">and contact2 = #{contact2}</if>
+            <if test="contact2Tel != null and contact2Tel != ''">and contact2_tel = #{contact2Tel}</if>
+            <if test="contact2Email != null and contact2Email != ''">and contact2_email = #{contact2Email}</if>
+            <if test="creditCode != null and creditCode != ''">and credit_code like concat('%', #{creditCode}, '%')</if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+            <if test="remark != null and remark != ''">and remark like concat('%', #{remark}, '%')</if>
+        </where>
+        order by vendor_id asc
+    </select>
+
+    <!-- 根据编码查询（校验编码重复用） -->
+    <select id="selectByVendorCode" resultMap="MdVendorResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_vendor
+        <where>
+            del_flag = '0'
+            and vendor_code = #{vendorCode}
+        </where>
+        limit 1
+    </select>
+
+    <!-- 根据ID查询单条
+         这里必须包 <where>：MyBatis 的 <where> 会自动处理首个 and 的去留，
+         不包的话 from 后面直接跟条件、没有 where 关键字，MySQL 直接报语法错误。 -->
+    <select id="selectById" resultMap="MdVendorResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_vendor
+        <where>
+            del_flag = '0'
+            and vendor_id = #{id}
+        </where>
+    </select>
+
+</mapper>

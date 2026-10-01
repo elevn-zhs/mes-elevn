@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SN Mapper XML：列表 join 工单表取编码（冗余展示列必须带表别名，防 1052） -->
+<mapper namespace="com.elevn.mes.wm.mapper.WmSnMapper">
+
+    <sql id="Base_Column_List">
+        wm_sn.sn_id, wm_sn.sn_code, wm_sn.item_id, wm_sn.item_code, wm_sn.item_name,
+        wm_sn.specification, wm_sn.unit_of_measure, wm_sn.batch_code, wm_sn.gen_date,
+        wm_sn.workorder_id, wm_sn.status, wm_sn.del_flag, wm_sn.remark,
+        wm_sn.create_by, wm_sn.create_time, wm_sn.update_by, wm_sn.update_time
+    </sql>
+
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmSn"
+            resultType="com.elevn.mes.wm.entity.WmSn">
+        select
+            <include refid="Base_Column_List"/>,
+            pw.workorder_code as workorder_code
+        from wm_sn
+        left join pro_workorder pw on pw.workorder_id = wm_sn.workorder_id
+        <where>
+            wm_sn.del_flag = '0'
+            <if test="snKeyword != null and snKeyword != ''">
+                and wm_sn.sn_code like concat('%', #{snKeyword}, '%')
+            </if>
+            <if test="itemId != null">and wm_sn.item_id = #{itemId}</if>
+            <if test="batchCode != null and batchCode != ''">
+                and wm_sn.batch_code like concat('%', #{batchCode}, '%')
+            </if>
+            <if test="workorderId != null">and wm_sn.workorder_id = #{workorderId}</if>
+            <if test="status != null and status != ''">and wm_sn.status = #{status}</if>
+        </where>
+        order by wm_sn.sn_id desc
+    </select>
+
+    <select id="selectById" resultType="com.elevn.mes.wm.entity.WmSn">
+        select
+            <include refid="Base_Column_List"/>,
+            pw.workorder_code as workorder_code
+        from wm_sn
+        left join pro_workorder pw on pw.workorder_id = wm_sn.workorder_id
+        where wm_sn.sn_id = #{snId} and wm_sn.del_flag = '0'
+    </select>
+
+    <select id="countByCode" resultType="int">
+        select count(*) from wm_sn
+        where sn_code = #{snCode} and del_flag = '0'
+    </select>
+
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmSn"
+            useGeneratedKeys="true" keyProperty="snId">
+        insert into wm_sn
+            (sn_code, item_id, item_code, item_name, specification, unit_of_measure,
+             batch_code, gen_date, workorder_id, status, del_flag, remark,
+             create_by, create_time, update_by, update_time)
+        values
+            (#{snCode}, #{itemId}, #{itemCode}, #{itemName}, #{specification}, #{unitOfMeasure},
+             #{batchCode}, now(), #{workorderId},
+             ifnull(#{status}, 'IN_STOCK'), '0', #{remark},
+             #{createBy}, now(), #{updateBy}, now())
+    </insert>
+
+    <update id="updateStatus">
+        update wm_sn
+        set status = #{status}, update_time = now()
+        where sn_id = #{snId} and del_flag = '0'
+    </update>
+
+    <!-- 重新绑定：只有"在库"的 SN 能改（发货/冻结后动它，追溯链就断了） -->
+    <update id="updateBind" parameterType="com.elevn.mes.wm.entity.WmSn">
+        update wm_sn
+        set batch_code = #{batchCode},
+            workorder_id = #{workorderId},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = now()
+        where sn_id = #{snId}
+          and status = 'IN_STOCK'
+          and del_flag = '0'
+    </update>
+
+    <update id="deleteById">
+        update wm_sn
+        set del_flag = '1', update_time = now()
+        where sn_id = #{snId} and status = 'IN_STOCK'
+    </update>
+
+</mapper>

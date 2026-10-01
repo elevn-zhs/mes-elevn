@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    物料产品
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+-->
+<mapper namespace="com.elevn.mes.md.mapper.MdItemMapper">
+
+    <!-- md_item 表字段与实体属性的映射 -->
+    <resultMap id="MdItemResultMap" type="com.elevn.mes.md.entity.MdItem">
+        <id column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="item_or_product" property="itemOrProduct"/>
+        <result column="item_type_id" property="itemTypeId"/>
+        <result column="item_type_code" property="itemTypeCode"/>
+        <result column="item_type_name" property="itemTypeName"/>
+        <result column="enable_flag" property="enableFlag"/>
+        <result column="safe_stock_flag" property="safeStockFlag"/>
+        <result column="min_stock" property="minStock"/>
+        <result column="max_stock" property="maxStock"/>
+        <result column="high_value" property="highValue"/>
+        <result column="batch_flag" property="batchFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        item_id, item_code, item_name, specification, unit_of_measure,
+        unit_name, item_or_product, item_type_id, item_type_code, item_type_name,
+        enable_flag, safe_stock_flag, min_stock, max_stock, high_value,
+        batch_flag, del_flag, remark, create_by, create_time,
+        update_by, update_time
+    </sql>
+
+    <!-- 新增物料产品：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.md.entity.MdItem" useGeneratedKeys="true" keyProperty="itemId">
+        insert into md_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="itemCode != null and itemCode != ''">item_code,</if>
+            <if test="itemName != null and itemName != ''">item_name,</if>
+            <if test="specification != null and specification != ''">specification,</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">unit_of_measure,</if>
+            <if test="unitName != null and unitName != ''">unit_name,</if>
+            <if test="itemOrProduct != null and itemOrProduct != ''">item_or_product,</if>
+            <if test="itemTypeId != null">item_type_id,</if>
+            <if test="itemTypeCode != null and itemTypeCode != ''">item_type_code,</if>
+            <if test="itemTypeName != null and itemTypeName != ''">item_type_name,</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag,</if>
+            <if test="safeStockFlag != null and safeStockFlag != ''">safe_stock_flag,</if>
+            <if test="minStock != null">min_stock,</if>
+            <if test="maxStock != null">max_stock,</if>
+            <if test="highValue != null and highValue != ''">high_value,</if>
+            <if test="batchFlag != null and batchFlag != ''">batch_flag,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="itemCode != null and itemCode != ''">#{itemCode},</if>
+            <if test="itemName != null and itemName != ''">#{itemName},</if>
+            <if test="specification != null and specification != ''">#{specification},</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">#{unitOfMeasure},</if>
+            <if test="unitName != null and unitName != ''">#{unitName},</if>
+            <if test="itemOrProduct != null and itemOrProduct != ''">#{itemOrProduct},</if>
+            <if test="itemTypeId != null">#{itemTypeId},</if>
+            <if test="itemTypeCode != null and itemTypeCode != ''">#{itemTypeCode},</if>
+            <if test="itemTypeName != null and itemTypeName != ''">#{itemTypeName},</if>
+            <if test="enableFlag != null and enableFlag != ''">#{enableFlag},</if>
+            <if test="safeStockFlag != null and safeStockFlag != ''">#{safeStockFlag},</if>
+            <if test="minStock != null">#{minStock},</if>
+            <if test="maxStock != null">#{maxStock},</if>
+            <if test="highValue != null and highValue != ''">#{highValue},</if>
+            <if test="batchFlag != null and batchFlag != ''">#{batchFlag},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改物料产品：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.md.entity.MdItem">
+        update md_item
+        <set>
+            <if test="itemCode != null and itemCode != ''">item_code = #{itemCode},</if>
+            <if test="itemName != null and itemName != ''">item_name = #{itemName},</if>
+            <if test="specification != null and specification != ''">specification = #{specification},</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">unit_of_measure = #{unitOfMeasure},</if>
+            <if test="unitName != null and unitName != ''">unit_name = #{unitName},</if>
+            <if test="itemOrProduct != null and itemOrProduct != ''">item_or_product = #{itemOrProduct},</if>
+            <if test="itemTypeId != null">item_type_id = #{itemTypeId},</if>
+            <if test="itemTypeCode != null and itemTypeCode != ''">item_type_code = #{itemTypeCode},</if>
+            <if test="itemTypeName != null and itemTypeName != ''">item_type_name = #{itemTypeName},</if>
+            <if test="enableFlag != null and enableFlag != ''">enable_flag = #{enableFlag},</if>
+            <if test="safeStockFlag != null and safeStockFlag != ''">safe_stock_flag = #{safeStockFlag},</if>
+            <if test="minStock != null">min_stock = #{minStock},</if>
+            <if test="maxStock != null">max_stock = #{maxStock},</if>
+            <if test="highValue != null and highValue != ''">high_value = #{highValue},</if>
+            <if test="batchFlag != null and batchFlag != ''">batch_flag = #{batchFlag},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where item_id = #{itemId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除物料产品：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update md_item set del_flag = '1'
+        where item_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量删除：同样走逻辑删除，一次把多个 id 的 del_flag 置为 1 -->
+    <update id="deleteBatch">
+        update md_item set del_flag = '1'
+        where del_flag = '0'
+          and item_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 多条件查询物料产品：条件为空则该字段不参与过滤；始终只查未删除的数据
+         编码 / 名称类字段走模糊查询，状态标志、ID 类字段走精确匹配。 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.md.entity.MdItem" resultMap="MdItemResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_item
+        <where>
+            del_flag = '0'
+            <if test="itemId != null">and item_id = #{itemId}</if>
+            <if test="itemCode != null and itemCode != ''">and item_code like concat('%', #{itemCode}, '%')</if>
+            <if test="itemName != null and itemName != ''">and item_name like concat('%', #{itemName}, '%')</if>
+            <if test="specification != null and specification != ''">and specification like concat('%', #{specification}, '%')</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">and unit_of_measure = #{unitOfMeasure}</if>
+            <if test="unitName != null and unitName != ''">and unit_name like concat('%', #{unitName}, '%')</if>
+            <if test="itemOrProduct != null and itemOrProduct != ''">and item_or_product = #{itemOrProduct}</if>
+            <if test="itemTypeId != null">and item_type_id = #{itemTypeId}</if>
+            <if test="itemTypeCode != null and itemTypeCode != ''">and item_type_code like concat('%', #{itemTypeCode}, '%')</if>
+            <if test="itemTypeName != null and itemTypeName != ''">and item_type_name like concat('%', #{itemTypeName}, '%')</if>
+            <if test="enableFlag != null and enableFlag != ''">and enable_flag = #{enableFlag}</if>
+            <if test="safeStockFlag != null and safeStockFlag != ''">and safe_stock_flag = #{safeStockFlag}</if>
+            <if test="highValue != null and highValue != ''">and high_value = #{highValue}</if>
+            <if test="batchFlag != null and batchFlag != ''">and batch_flag = #{batchFlag}</if>
+            <if test="remark != null and remark != ''">and remark like concat('%', #{remark}, '%')</if>
+        </where>
+        order by item_id asc
+    </select>
+
+    <!-- 根据编码查询（校验编码重复用） -->
+    <select id="selectByItemCode" resultMap="MdItemResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_item
+        <where>
+            del_flag = '0'
+            and item_code = #{itemCode}
+        </where>
+        limit 1
+    </select>
+
+    <!-- BOM 选料：先算出"需要排除的物料ID集合" = 自身 + 所有上级（祖先）+ 所有下级（子孙）
+
+         两个递归 CTE：
+           bom_up   从当前物料往上找：谁把我当子件（bom_item_id = 我），再对这些父件重复同样的问题
+           bom_down 从当前物料往下找：我的 BOM 里挂了哪些子件（item_id = 我），再对这些子件重复同样的问题
+
+         两个递归都带 lv < 20 的深度上限：万一库里已经存在成环的脏数据，
+         递归不会无限跑下去（MySQL 递归超过 cte_max_recursion_depth=1000 会直接报错）。
+
+         最后用 union 去重，并把自身也并进去，保证结果至少有一条。 -->
+    <select id="selectBomExcludeIds" resultType="java.lang.Long">
+        with recursive
+            bom_up as (
+                select b.item_id, 1 as lv
+                from md_product_bom b
+                where b.bom_item_id = #{excludeItemId} and b.del_flag = '0'
+                union all
+                select b.item_id, u.lv + 1
+                from md_product_bom b
+                         inner join bom_up u on b.bom_item_id = u.item_id
+                where b.del_flag = '0' and u.lv &lt; 20
+            ),
+            bom_down as (
+                select b.bom_item_id, 1 as lv
+                from md_product_bom b
+                where b.item_id = #{excludeItemId} and b.del_flag = '0'
+                union all
+                select b.bom_item_id, d.lv + 1
+                from md_product_bom b
+                         inner join bom_down d on b.item_id = d.bom_item_id
+                where b.del_flag = '0' and d.lv &lt; 20
+            )
+        select item_id from bom_up
+        union
+        select bom_item_id from bom_down
+        union
+        select #{excludeItemId}
+    </select>
+
+    <!-- BOM 选料：多条件分页查询候选物料，排除掉传进来的 ID 集合
+
+         这里故意不带 with recursive，只用普通的 not in：
+         这样 PageHelper 的自动 count 查询（select count(0) from ( 原SQL ) tmp_count）才不会出问题。 -->
+    <select id="selectForBom" resultMap="MdItemResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_item
+        <where>
+            del_flag = '0'
+            and item_id not in
+            <foreach collection="excludeIds" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+            <if test="item != null">
+                <if test="item.itemCode != null and item.itemCode != ''">and item_code like concat('%', #{item.itemCode}, '%')</if>
+                <if test="item.itemName != null and item.itemName != ''">and item_name like concat('%', #{item.itemName}, '%')</if>
+                <if test="item.specification != null and item.specification != ''">and specification like concat('%', #{item.specification}, '%')</if>
+                <if test="item.unitOfMeasure != null and item.unitOfMeasure != ''">and unit_of_measure = #{item.unitOfMeasure}</if>
+                <if test="item.itemOrProduct != null and item.itemOrProduct != ''">and item_or_product = #{item.itemOrProduct}</if>
+                <if test="item.itemTypeId != null">and item_type_id = #{item.itemTypeId}</if>
+                <if test="item.itemTypeCode != null and item.itemTypeCode != ''">and item_type_code like concat('%', #{item.itemTypeCode}, '%')</if>
+                <if test="item.itemTypeName != null and item.itemTypeName != ''">and item_type_name like concat('%', #{item.itemTypeName}, '%')</if>
+                <if test="item.enableFlag != null and item.enableFlag != ''">and enable_flag = #{item.enableFlag}</if>
+                <if test="item.batchFlag != null and item.batchFlag != ''">and batch_flag = #{item.batchFlag}</if>
+            </if>
+        </where>
+        order by item_id asc
+    </select>
+
+
+    <!-- 根据ID查询单条
+         这里必须包 <where>：MyBatis 的 <where> 会自动处理首个 and 的去留，
+         不包的话 from 后面直接跟条件、没有 where 关键字，MySQL 直接报语法错误。 -->
+    <select id="selectById" resultMap="MdItemResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_item
+        <where>
+            del_flag = '0'
+            and item_id = #{id}
+        </where>
+    </select>
+    <select id="selectByName"  resultMap="MdItemResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_item
+        <where>
+            del_flag = '0'
+            and item_name like concat("%",#{itemName},"%")
+        </where>
+    </select>
+    <select id="selectByTypeId" resultMap="MdItemResultMap">
+    select
+    <include refid="Base_Column_List"/>
+    from md_item
+    <where>
+        del_flag = '0'
+        and item_type_id = #{typeId}
+    </where>
+    </select>
+
+</mapper>

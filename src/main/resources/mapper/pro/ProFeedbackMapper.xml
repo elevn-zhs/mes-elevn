@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    生产报工（pro_feedback）
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag。
+          报工记录是真实发生过的业务事实，不像任务那样可重算，
+          所以本表只做逻辑删除（deleteById），不做物理删除。
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProFeedbackMapper">
+
+    <!-- pro_feedback 表字段与实体属性的映射 -->
+    <resultMap id="ProFeedbackResultMap" type="com.elevn.mes.pro.entity.ProFeedback">
+        <id column="record_id" property="recordId"/>
+        <result column="feedback_type" property="feedbackType"/>
+        <result column="feedback_code" property="feedbackCode"/>
+        <result column="workstation_id" property="workstationId"/>
+        <result column="workstation_code" property="workstationCode"/>
+        <result column="workstation_name" property="workstationName"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="workorder_code" property="workorderCode"/>
+        <result column="workorder_name" property="workorderName"/>
+        <result column="route_id" property="routeId"/>
+        <result column="route_code" property="routeCode"/>
+        <result column="process_id" property="processId"/>
+        <result column="process_code" property="processCode"/>
+        <result column="process_name" property="processName"/>
+        <result column="task_id" property="taskId"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="specification" property="specification"/>
+        <result column="expire_date" property="expireDate"/>
+        <result column="lot_number" property="lotNumber"/>
+        <result column="quantity" property="quantity"/>
+        <result column="quantity_feedback" property="quantityFeedback"/>
+        <result column="quantity_qualified" property="quantityQualified"/>
+        <result column="quantity_unqualified" property="quantityUnqualified"/>
+        <result column="quantity_uncheck" property="quantityUncheck"/>
+        <result column="user_name" property="userName"/>
+        <result column="nick_name" property="nickName"/>
+        <result column="feedback_channel" property="feedbackChannel"/>
+        <result column="feedback_time" property="feedbackTime"/>
+        <result column="record_user" property="recordUser"/>
+        <result column="record_nick" property="recordNick"/>
+        <result column="status" property="status"/>
+        <result column="reverse_reason" property="reverseReason"/>
+        <result column="reverse_by" property="reverseBy"/>
+        <result column="reverse_time" property="reverseTime"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        record_id, feedback_type, feedback_code, workstation_id, workstation_code,
+        workstation_name, workorder_id, workorder_code, workorder_name, route_id,
+        route_code, process_id, process_code, process_name, task_id,
+        task_code, item_id, item_code, item_name, unit_of_measure,
+        unit_name, specification, expire_date, lot_number, quantity,
+        quantity_feedback, quantity_qualified, quantity_unqualified, quantity_uncheck, user_name,
+        nick_name, feedback_channel, feedback_time, record_user, record_nick,
+        status, reverse_reason, reverse_by, reverse_time, del_flag,
+        remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 新增报工：主键由数据库自增生成 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="recordId">
+        insert into pro_feedback
+        (feedback_type, feedback_code, workstation_id, workstation_code, workstation_name,
+         workorder_id, workorder_code, workorder_name, route_id, route_code,
+         process_id, process_code, process_name, task_id, task_code,
+         item_id, item_code, item_name, unit_of_measure, unit_name,
+         specification, expire_date, lot_number, quantity, quantity_feedback,
+         quantity_qualified, quantity_unqualified, quantity_uncheck, user_name, nick_name,
+         feedback_channel, feedback_time, record_user, record_nick, status,
+         del_flag, remark, create_by, create_time, update_by,
+         update_time)
+        values
+        (#{feedbackType}, #{feedbackCode}, #{workstationId}, #{workstationCode}, #{workstationName},
+         #{workorderId}, #{workorderCode}, #{workorderName}, #{routeId}, #{routeCode},
+         #{processId}, #{processCode}, #{processName}, #{taskId}, #{taskCode},
+         #{itemId}, #{itemCode}, #{itemName}, #{unitOfMeasure}, #{unitName},
+         #{specification}, #{expireDate}, #{lotNumber}, #{quantity}, #{quantityFeedback},
+         #{quantityQualified}, #{quantityUnqualified}, #{quantityUncheck}, #{userName}, #{nickName},
+         #{feedbackChannel}, #{feedbackTime}, #{recordUser}, #{recordNick}, #{status},
+         '0', #{remark}, #{createBy}, #{createTime}, #{updateBy},
+         #{updateTime})
+    </insert>
+
+    <!-- 按主键查询单条 -->
+    <select id="selectById" resultMap="ProFeedbackResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_feedback
+        where del_flag = '0'
+          and record_id = #{id}
+    </select>
+
+    <!-- 按任务ID查该任务的全部报工 -->
+    <select id="selectByTaskId" resultMap="ProFeedbackResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_feedback
+        where del_flag = '0'
+          and task_id = #{taskId}
+        order by feedback_time desc, record_id desc
+    </select>
+
+    <!-- 条件查询报工列表（列表页 / 按工单或任务筛） -->
+    <select id="selectByCondition" resultMap="ProFeedbackResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_feedback
+        <where>
+            del_flag = '0'
+            <if test="workorderId != null">and workorder_id = #{workorderId}</if>
+            <if test="workorderCode != null and workorderCode != ''">
+                and workorder_code like concat('%', #{workorderCode}, '%')
+            </if>
+            <if test="taskId != null">and task_id = #{taskId}</if>
+            <if test="taskCode != null and taskCode != ''">
+                and task_code like concat('%', #{taskCode}, '%')
+            </if>
+            <if test="feedbackCode != null and feedbackCode != ''">
+                and feedback_code like concat('%', #{feedbackCode}, '%')
+            </if>
+            <if test="processId != null">and process_id = #{processId}</if>
+            <if test="workstationId != null">and workstation_id = #{workstationId}</if>
+            <if test="feedbackType != null and feedbackType != ''">and feedback_type = #{feedbackType}</if>
+            <if test="feedbackChannel != null and feedbackChannel != ''">and feedback_channel = #{feedbackChannel}</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+            <if test="feedbackTime != null">and feedback_time &gt;= #{feedbackTime}</if>
+        </where>
+        order by feedback_time desc, record_id desc
+    </select>
+
+    <!--
+      统计某任务已报工数量合计
+      注意：status='REVERSED'（已冲销）的报工不算数，必须排除，
+      否则冲销后数量扣不回来。
+    -->
+    <select id="sumFeedbackByTaskId" resultType="java.math.BigDecimal">
+        select ifnull(sum(quantity_feedback), 0) from pro_feedback
+        where del_flag = '0'
+          and task_id = #{taskId}
+          and (status is null or status != 'REVERSED')
+    </select>
+
+    <!-- 按主键逻辑删除：报工是业务事实，不做物理删除 -->
+    <update id="deleteById">
+        update pro_feedback set del_flag = '1'
+        where record_id = #{id}
+    </update>
+
+    <!--
+      冲销：状态置 REVERSED + 冲销人/时间/原因留痕（不删行）
+      数量与消耗的回退由 Service 在同一个事务里做，这里只管本行的状态与留痕，
+      保持「一张表只被一种 SQL 改」的清爽。
+      where 里排除已冲销，防止并发下重复冲销把数量扣两次。
+    -->
+    <update id="reverseById">
+        update pro_feedback
+        set status = 'REVERSED',
+            reverse_reason = #{reason},
+            reverse_by = #{reverseBy},
+            reverse_time = #{reverseTime},
+            update_by = #{reverseBy},
+            update_time = #{reverseTime}
+        where record_id = #{id}
+          and del_flag = '0'
+          and (status is null or status != 'REVERSED')
+    </update>
+
+    <!-- 回填报工编号（编号依赖自增主键，只能 insert 之后再写一次） -->
+    <update id="updateFeedbackCode">
+        update pro_feedback
+        set feedback_code = #{feedbackCode}
+        where record_id = #{id}
+    </update>
+
+</mapper>

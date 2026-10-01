@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    出入库单据头（wm_doc）
+    14 类单据合一，靠 doc_type 区分；io_flag 决定库存方向。
+
+
+    【updateById 刻意排除三个字段】
+      doc_type / doc_code / io_flag
+      这三个是单据的"身份"，身份变了，行、明细、流水全解释不通。
+      另外 status 也不在这里改 —— 状态只能由过账(updateExecute)/
+      取消(updateCancel)这两个有业务含义的动作推动，
+      放开在普通修改里，前端就能直接把 status 改成 CONFIRMED 而不动库存，
+      账立刻对不上。
+
+    【updateExecute / updateCancel 的 where 都带 status = 'PREPARE'】
+      这不是多余的保险，是并发防护：
+      两个人同时点过账 → 第一个把状态改成 CONFIRMED，
+      第二个的 update 命中 0 行，Service 看到 0 就知道"这单已经被处理过"，
+      直接拒绝，库存不会被扣两遍。
+
+    【列表里的中文类型名怎么来的】
+      用标量子查询去 sys_dict_data 取 dict_label，而不是 join。
+      join 会让每一行都去关联一次字典表，分页时 PageHelper 的 count 也容易算多；
+      标量子查询每条单据只查一次，干净。
+      查询里必须写全 wm_doc.doc_type（外层的列），否则子查询里的 doc_type 会有歧义。
+-->
+<mapper namespace="com.elevn.mes.wm.mapper.WmDocMapper">
+
+    <!-- wm_doc 表字段与实体属性的映射 -->
+    <resultMap id="WmDocResultMap" type="com.elevn.mes.wm.entity.WmDoc">
+        <id column="doc_id" property="docId"/>
+        <result column="doc_type" property="docType"/>
+        <result column="doc_code" property="docCode"/>
+        <result column="doc_name" property="docName"/>
+        <result column="io_flag" property="ioFlag"/>
+        <result column="biz_date" property="bizDate"/>
+        <result column="required_date" property="requiredDate"/>
+        <result column="status" property="status"/>
+        <result column="source_doc_type" property="sourceDocType"/>
+        <result column="source_doc_id" property="sourceDocId"/>
+        <result column="source_doc_code" property="sourceDocCode"/>
+        <result column="partner_type" property="partnerType"/>
+        <result column="partner_id" property="partnerId"/>
+        <result column="partner_code" property="partnerCode"/>
+        <result column="partner_name" property="partnerName"/>
+        <result column="partner_nick" property="partnerNick"/>
+        <result column="po_code" property="poCode"/>
+        <result column="so_code" property="soCode"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="workorder_code" property="workorderCode"/>
+        <result column="workorder_name" property="workorderName"/>
+        <result column="task_id" property="taskId"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="task_name" property="taskName"/>
+        <result column="workstation_id" property="workstationId"/>
+        <result column="workstation_code" property="workstationCode"/>
+        <result column="workstation_name" property="workstationName"/>
+        <result column="process_id" property="processId"/>
+        <result column="process_code" property="processCode"/>
+        <result column="process_name" property="processName"/>
+        <result column="feedback_id" property="feedbackId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="qc_type" property="qcType"/>
+        <result column="qc_id" property="qcId"/>
+        <result column="qc_code" property="qcCode"/>
+        <result column="carrier" property="carrier"/>
+        <result column="shipping_number" property="shippingNumber"/>
+        <result column="recipient" property="recipient"/>
+        <result column="tel" property="tel"/>
+        <result column="address" property="address"/>
+        <result column="reason_type" property="reasonType"/>
+        <result column="reason" property="reason"/>
+        <result column="warehouse_id" property="warehouseId"/>
+        <result column="warehouse_code" property="warehouseCode"/>
+        <result column="warehouse_name" property="warehouseName"/>
+        <result column="location_id" property="locationId"/>
+        <result column="location_code" property="locationCode"/>
+        <result column="location_name" property="locationName"/>
+        <result column="area_id" property="areaId"/>
+        <result column="area_code" property="areaCode"/>
+        <result column="area_name" property="areaName"/>
+        <result column="to_warehouse_id" property="toWarehouseId"/>
+        <result column="to_warehouse_code" property="toWarehouseCode"/>
+        <result column="to_warehouse_name" property="toWarehouseName"/>
+        <result column="to_location_id" property="toLocationId"/>
+        <result column="to_location_code" property="toLocationCode"/>
+        <result column="to_location_name" property="toLocationName"/>
+        <result column="to_area_id" property="toAreaId"/>
+        <result column="to_area_code" property="toAreaCode"/>
+        <result column="to_area_name" property="toAreaName"/>
+        <result column="delivery_flag" property="deliveryFlag"/>
+        <result column="confirm_flag" property="confirmFlag"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <!-- 非表字段：从字典带出来的中文类型名 -->
+        <result column="doc_type_name" property="docTypeName"/>
+    </resultMap>
+
+    <!-- 公共字段列表 -->
+    <sql id="Base_Column_List">
+        doc_id, doc_type, doc_code, doc_name, io_flag, biz_date, required_date, status,
+        source_doc_type, source_doc_id, source_doc_code,
+        partner_type, partner_id, partner_code, partner_name, partner_nick,
+        po_code, so_code,
+        workorder_id, workorder_code, workorder_name, task_id, task_code, task_name,
+        workstation_id, workstation_code, workstation_name,
+        process_id, process_code, process_name, feedback_id,
+        item_id, item_code, item_name, specification, unit_of_measure, unit_name,
+        qc_type, qc_id, qc_code,
+        carrier, shipping_number, recipient, tel, address,
+        reason_type, reason,
+        warehouse_id, warehouse_code, warehouse_name,
+        location_id, location_code, location_name,
+        area_id, area_code, area_name,
+        to_warehouse_id, to_warehouse_code, to_warehouse_name,
+        to_location_id, to_location_code, to_location_name,
+        to_area_id, to_area_code, to_area_name,
+        delivery_flag, confirm_flag, del_flag, remark,
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 单据类型中文名（标量子查询，取字典 wm_doc_type 的 label） -->
+    <sql id="Doc_Type_Name_Column">
+        (select d.dict_label from sys_dict_data d
+          where d.dict_type = 'wm_doc_type'
+            and d.dict_value = wm_doc.doc_type
+            and d.del_flag = '0'
+          limit 1) as doc_type_name
+    </sql>
+
+    <!-- 新增单据（主键回填到 docId） -->
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmDoc"
+            useGeneratedKeys="true" keyProperty="docId">
+        insert into wm_doc
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="docType != null and docType != ''">doc_type,</if>
+            <if test="docCode != null and docCode != ''">doc_code,</if>
+            <if test="docName != null and docName != ''">doc_name,</if>
+            <if test="ioFlag != null and ioFlag != ''">io_flag,</if>
+            <if test="bizDate != null">biz_date,</if>
+            <if test="requiredDate != null">required_date,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="sourceDocType != null and sourceDocType != ''">source_doc_type,</if>
+            <if test="sourceDocId != null">source_doc_id,</if>
+            <if test="sourceDocCode != null and sourceDocCode != ''">source_doc_code,</if>
+            <if test="partnerType != null and partnerType != ''">partner_type,</if>
+            <if test="partnerId != null">partner_id,</if>
+            <if test="partnerCode != null and partnerCode != ''">partner_code,</if>
+            <if test="partnerName != null and partnerName != ''">partner_name,</if>
+            <if test="partnerNick != null and partnerNick != ''">partner_nick,</if>
+            <if test="poCode != null and poCode != ''">po_code,</if>
+            <if test="soCode != null and soCode != ''">so_code,</if>
+            <if test="workorderId != null">workorder_id,</if>
+            <if test="workorderCode != null and workorderCode != ''">workorder_code,</if>
+            <if test="workorderName != null and workorderName != ''">workorder_name,</if>
+            <if test="taskId != null">task_id,</if>
+            <if test="taskCode != null and taskCode != ''">task_code,</if>
+            <if test="taskName != null and taskName != ''">task_name,</if>
+            <if test="workstationId != null">workstation_id,</if>
+            <if test="workstationCode != null and workstationCode != ''">workstation_code,</if>
+            <if test="workstationName != null and workstationName != ''">workstation_name,</if>
+            <if test="processId != null">process_id,</if>
+            <if test="processCode != null and processCode != ''">process_code,</if>
+            <if test="processName != null and processName != ''">process_name,</if>
+            <if test="feedbackId != null">feedback_id,</if>
+            <if test="itemId != null">item_id,</if>
+            <if test="itemCode != null and itemCode != ''">item_code,</if>
+            <if test="itemName != null and itemName != ''">item_name,</if>
+            <if test="specification != null and specification != ''">specification,</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">unit_of_measure,</if>
+            <if test="unitName != null and unitName != ''">unit_name,</if>
+            <if test="qcType != null and qcType != ''">qc_type,</if>
+            <if test="qcId != null">qc_id,</if>
+            <if test="qcCode != null and qcCode != ''">qc_code,</if>
+            <if test="carrier != null and carrier != ''">carrier,</if>
+            <if test="shippingNumber != null and shippingNumber != ''">shipping_number,</if>
+            <if test="recipient != null and recipient != ''">recipient,</if>
+            <if test="tel != null and tel != ''">tel,</if>
+            <if test="address != null and address != ''">address,</if>
+            <if test="reasonType != null and reasonType != ''">reason_type,</if>
+            <if test="reason != null and reason != ''">reason,</if>
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="warehouseCode != null and warehouseCode != ''">warehouse_code,</if>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="locationCode != null and locationCode != ''">location_code,</if>
+            <if test="locationName != null and locationName != ''">location_name,</if>
+            <if test="areaId != null">area_id,</if>
+            <if test="areaCode != null and areaCode != ''">area_code,</if>
+            <if test="areaName != null and areaName != ''">area_name,</if>
+            <if test="toWarehouseId != null">to_warehouse_id,</if>
+            <if test="toWarehouseCode != null and toWarehouseCode != ''">to_warehouse_code,</if>
+            <if test="toWarehouseName != null and toWarehouseName != ''">to_warehouse_name,</if>
+            <if test="toLocationId != null">to_location_id,</if>
+            <if test="toLocationCode != null and toLocationCode != ''">to_location_code,</if>
+            <if test="toLocationName != null and toLocationName != ''">to_location_name,</if>
+            <if test="toAreaId != null">to_area_id,</if>
+            <if test="toAreaCode != null and toAreaCode != ''">to_area_code,</if>
+            <if test="toAreaName != null and toAreaName != ''">to_area_name,</if>
+            <if test="deliveryFlag != null and deliveryFlag != ''">delivery_flag,</if>
+            <if test="confirmFlag != null and confirmFlag != ''">confirm_flag,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="docType != null and docType != ''">#{docType},</if>
+            <if test="docCode != null and docCode != ''">#{docCode},</if>
+            <if test="docName != null and docName != ''">#{docName},</if>
+            <if test="ioFlag != null and ioFlag != ''">#{ioFlag},</if>
+            <if test="bizDate != null">#{bizDate},</if>
+            <if test="requiredDate != null">#{requiredDate},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="sourceDocType != null and sourceDocType != ''">#{sourceDocType},</if>
+            <if test="sourceDocId != null">#{sourceDocId},</if>
+            <if test="sourceDocCode != null and sourceDocCode != ''">#{sourceDocCode},</if>
+            <if test="partnerType != null and partnerType != ''">#{partnerType},</if>
+            <if test="partnerId != null">#{partnerId},</if>
+            <if test="partnerCode != null and partnerCode != ''">#{partnerCode},</if>
+            <if test="partnerName != null and partnerName != ''">#{partnerName},</if>
+            <if test="partnerNick != null and partnerNick != ''">#{partnerNick},</if>
+            <if test="poCode != null and poCode != ''">#{poCode},</if>
+            <if test="soCode != null and soCode != ''">#{soCode},</if>
+            <if test="workorderId != null">#{workorderId},</if>
+            <if test="workorderCode != null and workorderCode != ''">#{workorderCode},</if>
+            <if test="workorderName != null and workorderName != ''">#{workorderName},</if>
+            <if test="taskId != null">#{taskId},</if>
+            <if test="taskCode != null and taskCode != ''">#{taskCode},</if>
+            <if test="taskName != null and taskName != ''">#{taskName},</if>
+            <if test="workstationId != null">#{workstationId},</if>
+            <if test="workstationCode != null and workstationCode != ''">#{workstationCode},</if>
+            <if test="workstationName != null and workstationName != ''">#{workstationName},</if>
+            <if test="processId != null">#{processId},</if>
+            <if test="processCode != null and processCode != ''">#{processCode},</if>
+            <if test="processName != null and processName != ''">#{processName},</if>
+            <if test="feedbackId != null">#{feedbackId},</if>
+            <if test="itemId != null">#{itemId},</if>
+            <if test="itemCode != null and itemCode != ''">#{itemCode},</if>
+            <if test="itemName != null and itemName != ''">#{itemName},</if>
+            <if test="specification != null and specification != ''">#{specification},</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">#{unitOfMeasure},</if>
+            <if test="unitName != null and unitName != ''">#{unitName},</if>
+            <if test="qcType != null and qcType != ''">#{qcType},</if>
+            <if test="qcId != null">#{qcId},</if>
+            <if test="qcCode != null and qcCode != ''">#{qcCode},</if>
+            <if test="carrier != null and carrier != ''">#{carrier},</if>
+            <if test="shippingNumber != null and shippingNumber != ''">#{shippingNumber},</if>
+            <if test="recipient != null and recipient != ''">#{recipient},</if>
+            <if test="tel != null and tel != ''">#{tel},</if>
+            <if test="address != null and address != ''">#{address},</if>
+            <if test="reasonType != null and reasonType != ''">#{reasonType},</if>
+            <if test="reason != null and reason != ''">#{reason},</if>
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="warehouseCode != null and warehouseCode != ''">#{warehouseCode},</if>
+            <if test="warehouseName != null and warehouseName != ''">#{warehouseName},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="locationCode != null and locationCode != ''">#{locationCode},</if>
+            <if test="locationName != null and locationName != ''">#{locationName},</if>
+            <if test="areaId != null">#{areaId},</if>
+            <if test="areaCode != null and areaCode != ''">#{areaCode},</if>
+            <if test="areaName != null and areaName != ''">#{areaName},</if>
+            <if test="toWarehouseId != null">#{toWarehouseId},</if>
+            <if test="toWarehouseCode != null and toWarehouseCode != ''">#{toWarehouseCode},</if>
+            <if test="toWarehouseName != null and toWarehouseName != ''">#{toWarehouseName},</if>
+            <if test="toLocationId != null">#{toLocationId},</if>
+            <if test="toLocationCode != null and toLocationCode != ''">#{toLocationCode},</if>
+            <if test="toLocationName != null and toLocationName != ''">#{toLocationName},</if>
+            <if test="toAreaId != null">#{toAreaId},</if>
+            <if test="toAreaCode != null and toAreaCode != ''">#{toAreaCode},</if>
+            <if test="toAreaName != null and toAreaName != ''">#{toAreaName},</if>
+            <if test="deliveryFlag != null and deliveryFlag != ''">#{deliveryFlag},</if>
+            <if test="confirmFlag != null and confirmFlag != ''">#{confirmFlag},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!--
+        根据ID修改：只更新非 null 字段
+        刻意不更新 doc_type / doc_code / io_flag / status（原因见文件头说明）
+    -->
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmDoc">
+        update wm_doc
+        <set>
+            <if test="docName != null">doc_name = #{docName},</if>
+            <if test="bizDate != null">biz_date = #{bizDate},</if>
+            <if test="requiredDate != null">required_date = #{requiredDate},</if>
+            <if test="sourceDocType != null">source_doc_type = #{sourceDocType},</if>
+            <if test="sourceDocId != null">source_doc_id = #{sourceDocId},</if>
+            <if test="sourceDocCode != null">source_doc_code = #{sourceDocCode},</if>
+            <if test="partnerType != null">partner_type = #{partnerType},</if>
+            <if test="partnerId != null">partner_id = #{partnerId},</if>
+            <if test="partnerCode != null">partner_code = #{partnerCode},</if>
+            <if test="partnerName != null">partner_name = #{partnerName},</if>
+            <if test="partnerNick != null">partner_nick = #{partnerNick},</if>
+            <if test="poCode != null">po_code = #{poCode},</if>
+            <if test="soCode != null">so_code = #{soCode},</if>
+            <if test="workorderId != null">workorder_id = #{workorderId},</if>
+            <if test="workorderCode != null">workorder_code = #{workorderCode},</if>
+            <if test="workorderName != null">workorder_name = #{workorderName},</if>
+            <if test="taskId != null">task_id = #{taskId},</if>
+            <if test="taskCode != null">task_code = #{taskCode},</if>
+            <if test="taskName != null">task_name = #{taskName},</if>
+            <if test="workstationId != null">workstation_id = #{workstationId},</if>
+            <if test="workstationCode != null">workstation_code = #{workstationCode},</if>
+            <if test="workstationName != null">workstation_name = #{workstationName},</if>
+            <if test="processId != null">process_id = #{processId},</if>
+            <if test="processCode != null">process_code = #{processCode},</if>
+            <if test="processName != null">process_name = #{processName},</if>
+            <if test="feedbackId != null">feedback_id = #{feedbackId},</if>
+            <if test="itemId != null">item_id = #{itemId},</if>
+            <if test="itemCode != null">item_code = #{itemCode},</if>
+            <if test="itemName != null">item_name = #{itemName},</if>
+            <if test="specification != null">specification = #{specification},</if>
+            <if test="unitOfMeasure != null">unit_of_measure = #{unitOfMeasure},</if>
+            <if test="unitName != null">unit_name = #{unitName},</if>
+            <if test="qcType != null">qc_type = #{qcType},</if>
+            <if test="qcId != null">qc_id = #{qcId},</if>
+            <if test="qcCode != null">qc_code = #{qcCode},</if>
+            <if test="carrier != null">carrier = #{carrier},</if>
+            <if test="shippingNumber != null">shipping_number = #{shippingNumber},</if>
+            <if test="recipient != null">recipient = #{recipient},</if>
+            <if test="tel != null">tel = #{tel},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="reasonType != null">reason_type = #{reasonType},</if>
+            <if test="reason != null">reason = #{reason},</if>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="warehouseCode != null">warehouse_code = #{warehouseCode},</if>
+            <if test="warehouseName != null">warehouse_name = #{warehouseName},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="locationCode != null">location_code = #{locationCode},</if>
+            <if test="locationName != null">location_name = #{locationName},</if>
+            <if test="areaId != null">area_id = #{areaId},</if>
+            <if test="areaCode != null">area_code = #{areaCode},</if>
+            <if test="areaName != null">area_name = #{areaName},</if>
+            <if test="toWarehouseId != null">to_warehouse_id = #{toWarehouseId},</if>
+            <if test="toWarehouseCode != null">to_warehouse_code = #{toWarehouseCode},</if>
+            <if test="toWarehouseName != null">to_warehouse_name = #{toWarehouseName},</if>
+            <if test="toLocationId != null">to_location_id = #{toLocationId},</if>
+            <if test="toLocationCode != null">to_location_code = #{toLocationCode},</if>
+            <if test="toLocationName != null">to_location_name = #{toLocationName},</if>
+            <if test="toAreaId != null">to_area_id = #{toAreaId},</if>
+            <if test="toAreaCode != null">to_area_code = #{toAreaCode},</if>
+            <if test="toAreaName != null">to_area_name = #{toAreaName},</if>
+            <if test="deliveryFlag != null">delivery_flag = #{deliveryFlag},</if>
+            <if test="confirmFlag != null">confirm_flag = #{confirmFlag},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where doc_id = #{docId}
+        and del_flag = '0'
+        <!-- 已过账的单不允许再改（库存动过就回不了头） -->
+        and status = 'PREPARE'
+    </update>
+
+    <!-- 回填单据编号：先插入拿主键，再按编码规则补上 -->
+    <update id="updateDocCode" parameterType="com.elevn.mes.wm.entity.WmDoc">
+        update wm_doc set doc_code = #{docCode}
+        where doc_id = #{docId}
+    </update>
+
+    <!--
+        过账：PREPARE → CONFIRMED
+        where 必须带 status = 'PREPARE'，返回 0 行 = 已被别人处理过（并发防护）
+    -->
+    <update id="updateExecute" parameterType="com.elevn.mes.wm.entity.WmDoc">
+        update wm_doc
+        <set>
+            status = 'CONFIRMED',
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where doc_id = #{docId}
+        and del_flag = '0'
+        and status = 'PREPARE'
+    </update>
+
+    <!-- 取消：PREPARE → CANCELED（同样只允许从待过账状态取消） -->
+    <update id="updateCancel" parameterType="com.elevn.mes.wm.entity.WmDoc">
+        update wm_doc
+        <set>
+            status = 'CANCELED',
+            <if test="reason != null and reason != ''">reason = #{reason},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where doc_id = #{docId}
+        and del_flag = '0'
+        and status = 'PREPARE'
+    </update>
+
+    <!-- 调拨送达确认：CONFIRMED → FINISHED -->
+    <update id="updateFinish" parameterType="com.elevn.mes.wm.entity.WmDoc">
+        update wm_doc
+        <set>
+            status = 'FINISHED',
+            confirm_flag = 'Y',
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where doc_id = #{docId}
+        and del_flag = '0'
+        and status = 'CONFIRMED'
+    </update>
+
+    <!-- 根据ID逻辑删除 -->
+    <delete id="deleteById">
+        update wm_doc set del_flag = '1'
+        where doc_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量逻辑删除 -->
+    <update id="deleteBatch">
+        update wm_doc set del_flag = '1'
+        where del_flag = '0'
+          and doc_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 根据ID查询单条 -->
+    <select id="selectById" resultMap="WmDocResultMap">
+        select
+        <include refid="Base_Column_List"/>,
+        <include refid="Doc_Type_Name_Column"/>
+        from wm_doc
+        <where>
+            wm_doc.del_flag = '0'
+            and wm_doc.doc_id = #{id}
+        </where>
+    </select>
+
+    <!--
+        多条件查询单据列表
+        【必带 docType】14 类单据混在一张表，不带类型条件会把所有单据倒出来
+    -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmDoc"
+            resultMap="WmDocResultMap">
+        select
+        <include refid="Base_Column_List"/>,
+        <include refid="Doc_Type_Name_Column"/>
+        from wm_doc
+        <where>
+            wm_doc.del_flag = '0'
+            <if test="docType != null and docType != ''">and wm_doc.doc_type = #{docType}</if>
+            <if test="docCode != null and docCode != ''">
+                and wm_doc.doc_code like concat('%', #{docCode}, '%')
+            </if>
+            <if test="docName != null and docName != ''">
+                and wm_doc.doc_name like concat('%', #{docName}, '%')
+            </if>
+            <if test="ioFlag != null and ioFlag != ''">and wm_doc.io_flag = #{ioFlag}</if>
+            <if test="status != null and status != ''">and wm_doc.status = #{status}</if>
+            <if test="partnerType != null and partnerType != ''">and wm_doc.partner_type = #{partnerType}</if>
+            <if test="partnerId != null">and wm_doc.partner_id = #{partnerId}</if>
+            <if test="partnerName != null and partnerName != ''">
+                and wm_doc.partner_name like concat('%', #{partnerName}, '%')
+            </if>
+            <if test="poCode != null and poCode != ''">
+                and wm_doc.po_code like concat('%', #{poCode}, '%')
+            </if>
+            <if test="soCode != null and soCode != ''">
+                and wm_doc.so_code like concat('%', #{soCode}, '%')
+            </if>
+            <if test="workorderId != null">and wm_doc.workorder_id = #{workorderId}</if>
+            <if test="workorderCode != null and workorderCode != ''">
+                and wm_doc.workorder_code like concat('%', #{workorderCode}, '%')
+            </if>
+            <if test="taskId != null">and wm_doc.task_id = #{taskId}</if>
+            <if test="warehouseId != null">and wm_doc.warehouse_id = #{warehouseId}</if>
+            <if test="sourceDocType != null and sourceDocType != ''">and wm_doc.source_doc_type = #{sourceDocType}</if>
+            <if test="sourceDocId != null">and wm_doc.source_doc_id = #{sourceDocId}</if>
+            <!-- 业务日期区间查询（两个非表字段） -->
+            <if test="bizDateStart != null">and wm_doc.biz_date &gt;= #{bizDateStart}</if>
+            <if test="bizDateEnd != null">and wm_doc.biz_date &lt;= #{bizDateEnd}</if>
+        </where>
+        order by wm_doc.doc_id desc
+    </select>
+
+    <!-- 统计指定状态的单据数（过账/删除前的 L3 校验） -->
+    <select id="countByDocIdAndStatus" resultType="int">
+        select count(1) from wm_doc
+        where del_flag = '0'
+          and doc_id = #{docId}
+          and status = #{status}
+    </select>
+
+</mapper>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 盘点计划 Mapper XML -->
+<mapper namespace="com.elevn.mes.wm.mapper.WmStockTakingPlanMapper">
+
+    <sql id="Base_Column_List">
+        plan_id, plan_code, plan_name, taking_type, start_time, end_time,
+        blind_flag, frozen_flag, enable_flag, status, del_flag, remark,
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <sql id="Select_Condition">
+        select <include refid="Base_Column_List"/>,
+            (select count(*) from wm_stock_taking t
+              where t.plan_id = wm_stock_taking_plan.plan_id and t.del_flag = '0') as taking_count
+        from wm_stock_taking_plan
+        <where>
+            wm_stock_taking_plan.del_flag = '0'
+            <if test="planCode != null and planCode != ''">
+                and wm_stock_taking_plan.plan_code like concat('%', #{planCode}, '%')
+            </if>
+            <if test="planName != null and planName != ''">
+                and wm_stock_taking_plan.plan_name like concat('%', #{planName}, '%')
+            </if>
+            <if test="takingType != null and takingType != ''">
+                and wm_stock_taking_plan.taking_type = #{takingType}
+            </if>
+            <if test="status != null and status != ''">
+                and wm_stock_taking_plan.status = #{status}
+            </if>
+        </where>
+        order by wm_stock_taking_plan.plan_id desc
+    </sql>
+
+    <!-- taking_count = 该计划已生成的盘点单数（防重复生成 / 列表页展示） -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.wm.entity.WmStockTakingPlan"
+            resultType="com.elevn.mes.wm.entity.WmStockTakingPlan">
+        select * from (
+            <include refid="Select_Condition"/>
+        ) t
+    </select>
+
+    <select id="selectById" resultType="com.elevn.mes.wm.entity.WmStockTakingPlan">
+        select <include refid="Base_Column_List"/>
+        from wm_stock_taking_plan
+        where plan_id = #{planId} and del_flag = '0'
+    </select>
+
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmStockTakingPlan"
+            useGeneratedKeys="true" keyProperty="planId">
+        insert into wm_stock_taking_plan
+            (plan_code, plan_name, taking_type, start_time, end_time,
+             blind_flag, frozen_flag, enable_flag, status, del_flag, remark,
+             create_by, create_time, update_by, update_time)
+        values
+            (#{planCode}, #{planName}, #{takingType}, #{startTime}, #{endTime},
+             ifnull(#{blindFlag}, 'N'), ifnull(#{frozenFlag}, 'N'),
+             'Y', 'PREPARE', '0', #{remark},
+             #{createBy}, now(), #{updateBy}, now())
+    </insert>
+
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmStockTakingPlan">
+        update wm_stock_taking_plan
+        set plan_name = #{planName},
+            taking_type = #{takingType},
+            start_time = #{startTime},
+            end_time = #{endTime},
+            blind_flag = #{blindFlag},
+            frozen_flag = #{frozenFlag},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = now()
+        where plan_id = #{planId}
+          and status = 'PREPARE'
+          and del_flag = '0'
+    </update>
+
+    <update id="updateStatus">
+        update wm_stock_taking_plan
+        set status = #{toStatus}, update_time = now()
+        where plan_id = #{planId} and status = #{fromStatus} and del_flag = '0'
+    </update>
+
+    <update id="deleteById">
+        update wm_stock_taking_plan
+        set del_flag = '1', update_time = now()
+        where plan_id = #{planId}
+    </update>
+
+    <select id="countTakingByPlanId" resultType="int">
+        select count(*) from wm_stock_taking
+        where plan_id = #{planId} and del_flag = '0'
+    </select>
+
+</mapper>

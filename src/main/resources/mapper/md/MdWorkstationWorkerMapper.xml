@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    工作站人力资源
+
+
+    说明：本文件是手写 SQL。逻辑删除需要自己在 SQL 里写 del_flag，
+          每条查询都要带 del_flag = '0'，否则会把已删除的数据查出来。
+-->
+<mapper namespace="com.elevn.mes.md.mapper.MdWorkstationWorkerMapper">
+
+    <!-- md_workstation_worker 表字段与实体属性的映射 -->
+    <resultMap id="MdWorkstationWorkerResultMap" type="com.elevn.mes.md.entity.MdWorkstationWorker">
+        <id column="record_id" property="recordId"/>
+        <result column="workstation_id" property="workstationId"/>
+        <result column="post_id" property="postId"/>
+        <result column="post_code" property="postCode"/>
+        <result column="post_name" property="postName"/>
+        <result column="quantity" property="quantity"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        record_id, workstation_id, post_id, post_code, post_name,
+        quantity, del_flag, remark, create_by, create_time,
+        update_by, update_time
+    </sql>
+
+    <!-- 新增工作站人力资源：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.md.entity.MdWorkstationWorker" useGeneratedKeys="true" keyProperty="recordId">
+        insert into md_workstation_worker
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="workstationId != null">workstation_id,</if>
+            <if test="postId != null">post_id,</if>
+            <if test="postCode != null and postCode != ''">post_code,</if>
+            <if test="postName != null and postName != ''">post_name,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="workstationId != null">#{workstationId},</if>
+            <if test="postId != null">#{postId},</if>
+            <if test="postCode != null and postCode != ''">#{postCode},</if>
+            <if test="postName != null and postName != ''">#{postName},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改工作站人力资源：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.md.entity.MdWorkstationWorker">
+        update md_workstation_worker
+        <set>
+            <if test="workstationId != null">workstation_id = #{workstationId},</if>
+            <if test="postId != null">post_id = #{postId},</if>
+            <if test="postCode != null and postCode != ''">post_code = #{postCode},</if>
+            <if test="postName != null and postName != ''">post_name = #{postName},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where record_id = #{recordId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除工作站人力资源：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update md_workstation_worker set del_flag = '1'
+        where record_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 批量删除：同样走逻辑删除，一次把多个 id 的 del_flag 置为 1 -->
+    <update id="deleteBatch">
+        update md_workstation_worker set del_flag = '1'
+        where del_flag = '0'
+          and record_id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 多条件查询工作站人力资源：条件为空则该字段不参与过滤；始终只查未删除的数据
+         编码 / 名称类字段走模糊查询，状态标志、ID 类字段走精确匹配。 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.md.entity.MdWorkstationWorker" resultMap="MdWorkstationWorkerResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_workstation_worker
+        <where>
+            del_flag = '0'
+            <if test="recordId != null">and record_id = #{recordId}</if>
+            <if test="workstationId != null">and workstation_id = #{workstationId}</if>
+            <if test="postId != null">and post_id = #{postId}</if>
+            <if test="postCode != null and postCode != ''">and post_code like concat('%', #{postCode}, '%')</if>
+            <if test="postName != null and postName != ''">and post_name like concat('%', #{postName}, '%')</if>
+            <if test="quantity != null">and quantity = #{quantity}</if>
+            <if test="remark != null and remark != ''">and remark like concat('%', #{remark}, '%')</if>
+        </where>
+        order by record_id asc
+    </select>
+
+    <!-- 按所属ID查询子表列表 -->
+    <select id="selectByWorkstationId" resultMap="MdWorkstationWorkerResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_workstation_worker
+        <where>
+            del_flag = '0'
+            and workstation_id = #{workstationId}
+        </where>
+        order by record_id asc
+    </select>
+
+    <!-- 重复绑定校验：同一工作站 + 同一岗位只能有一条记录
+         excludeRecordId 用于修改场景（排除自己），新增时传 null，if 不生效即全表比对。 -->
+    <select id="selectDuplicate" resultType="int">
+        select count(1)
+        from md_workstation_worker
+        <where>
+            del_flag = '0'
+            and workstation_id = #{workstationId}
+            and post_id = #{postId}
+            <if test="excludeRecordId != null">and record_id != #{excludeRecordId}</if>
+        </where>
+    </select>
+
+    <!-- 根据ID查询单条
+         这里必须包 <where>：MyBatis 的 <where> 会自动处理首个 and 的去留，
+         不包的话 from 后面直接跟条件、没有 where 关键字，MySQL 直接报语法错误。 -->
+    <select id="selectById" resultMap="MdWorkstationWorkerResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from md_workstation_worker
+        <where>
+            del_flag = '0'
+            and record_id = #{id}
+        </where>
+    </select>
+
+</mapper>

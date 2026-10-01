@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    生产工单BOM组成
+
+-->
+<mapper namespace="com.elevn.mes.pro.mapper.ProWorkorderBomMapper">
+
+    <!-- pro_workorder_bom 表字段与实体属性的映射 -->
+    <resultMap id="ProWorkorderBomResultMap" type="com.elevn.mes.pro.entity.ProWorkorderBom">
+        <id column="line_id" property="lineId"/>
+        <result column="workorder_id" property="workorderId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="item_spc" property="itemSpc"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="item_or_product" property="itemOrProduct"/>
+        <result column="quantity" property="quantity"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表 -->
+    <sql id="Base_Column_List">
+        line_id, workorder_id, item_id, item_code, item_name,
+        item_spc, unit_of_measure, unit_name, item_or_product, quantity,
+        del_flag, remark, create_by, create_time, update_by,
+        update_time
+    </sql>
+
+    <!-- 批量插入：工单下达时按产品BOM一次展开成多行 -->
+    <insert id="insertBatch">
+        insert into pro_workorder_bom
+          (workorder_id, item_id, item_code, item_name, item_spc,
+           unit_of_measure, unit_name, item_or_product, quantity,
+           del_flag, remark, create_by, create_time, update_by, update_time)
+        values
+        <foreach collection="list" item="it" separator=",">
+          (#{it.workorderId}, #{it.itemId}, #{it.itemCode}, #{it.itemName}, #{it.itemSpc},
+           #{it.unitOfMeasure}, #{it.unitName}, #{it.itemOrProduct}, #{it.quantity},
+           '0', #{it.remark}, #{it.createBy}, #{it.createTime}, #{it.updateBy}, #{it.updateTime})
+        </foreach>
+    </insert>
+
+    <!-- 根据工单ID物理清理：展开行是可重算的派生数据，物理删除避免脏行堆积 -->
+    <delete id="deleteByWorkorderId">
+        delete from pro_workorder_bom
+        where workorder_id = #{workorderId}
+    </delete>
+
+    <!-- 根据工单ID查询BOM明细 -->
+    <select id="selectByWorkorderId" resultMap="ProWorkorderBomResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from pro_workorder_bom
+        where del_flag = '0'
+          and workorder_id = #{workorderId}
+        order by line_id asc
+    </select>
+
+    <!-- 统计工单BOM行数 -->
+    <select id="selectCountByWorkorderId" resultType="int">
+        select count(1) from pro_workorder_bom
+        where del_flag = '0'
+          and workorder_id = #{workorderId}
+    </select>
+
+</mapper>

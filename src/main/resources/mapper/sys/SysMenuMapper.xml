@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.elevn.mes.sys.mapper.SysMenuMapper">
+
+    <!-- sys_menu 表字段与实体属性的映射 -->
+    <resultMap id="SysMenuResultMap" type="com.elevn.mes.sys.entity.SysMenu">
+        <id column="menu_id" property="menuId"/>
+        <result column="menu_name" property="menuName"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="order_num" property="orderNum"/>
+        <result column="path" property="path"/>
+        <result column="component" property="component"/>
+        <result column="query" property="query"/>
+        <result column="is_frame" property="isFrame"/>
+        <result column="is_cache" property="isCache"/>
+        <result column="menu_type" property="menuType"/>
+        <result column="visible" property="visible"/>
+        <result column="status" property="status"/>
+        <result column="perms" property="perms"/>
+        <result column="icon" property="icon"/>
+        <result column="api_url" property="apiUrl"/>
+        <result column="api_method" property="apiMethod"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="remark" property="remark"/>
+    </resultMap>
+
+    <!-- 公共字段列表，避免每句 SQL 重复罗列 -->
+    <sql id="Base_Column_List">
+        menu_id, menu_name, parent_id, order_num, path,
+        component, query, is_frame, is_cache, menu_type,
+        visible, status, perms, icon, api_url,
+        api_method, del_flag, create_by, create_time, update_by,
+        update_time, remark
+    </sql>
+
+    <!-- 联表查询用的字段列表（带表别名，防止与其它表列名冲突） -->
+    <sql id="Join_Column_List">
+        m.menu_id, m.menu_name, m.parent_id, m.order_num, m.path,
+        m.component, m.query, m.is_frame, m.is_cache, m.menu_type,
+        m.visible, m.status, m.perms, m.icon, m.api_url,
+        m.api_method, m.del_flag, m.create_by, m.create_time, m.update_by,
+        m.update_time, m.remark
+    </sql>
+
+    <!-- 新增权限（菜单）：字段为 null 时不写入，交给数据库默认值 -->
+    <insert id="insert" parameterType="com.elevn.mes.sys.entity.SysMenu" useGeneratedKeys="true" keyProperty="menuId">
+        insert into sys_menu
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="menuName != null and menuName != ''">menu_name,</if>
+            <if test="parentId != null">parent_id,</if>
+            <if test="orderNum != null">order_num,</if>
+            <if test="path != null and path != ''">path,</if>
+            <if test="component != null and component != ''">component,</if>
+            <if test="query != null and query != ''">query,</if>
+            <if test="isFrame != null and isFrame != ''">is_frame,</if>
+            <if test="isCache != null and isCache != ''">is_cache,</if>
+            <if test="menuType != null and menuType != ''">menu_type,</if>
+            <if test="visible != null and visible != ''">visible,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="perms != null and perms != ''">perms,</if>
+            <if test="icon != null and icon != ''">icon,</if>
+            <if test="apiUrl != null and apiUrl != ''">api_url,</if>
+            <if test="apiMethod != null and apiMethod != ''">api_method,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="menuName != null and menuName != ''">#{menuName},</if>
+            <if test="parentId != null">#{parentId},</if>
+            <if test="orderNum != null">#{orderNum},</if>
+            <if test="path != null and path != ''">#{path},</if>
+            <if test="component != null and component != ''">#{component},</if>
+            <if test="query != null and query != ''">#{query},</if>
+            <if test="isFrame != null and isFrame != ''">#{isFrame},</if>
+            <if test="isCache != null and isCache != ''">#{isCache},</if>
+            <if test="menuType != null and menuType != ''">#{menuType},</if>
+            <if test="visible != null and visible != ''">#{visible},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="perms != null and perms != ''">#{perms},</if>
+            <if test="icon != null and icon != ''">#{icon},</if>
+            <if test="apiUrl != null and apiUrl != ''">#{apiUrl},</if>
+            <if test="apiMethod != null and apiMethod != ''">#{apiMethod},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <!-- 根据ID修改权限（菜单）：只更新非 null 字段；create_by / create_time / del_flag 不参与修改 -->
+    <update id="updateById" parameterType="com.elevn.mes.sys.entity.SysMenu">
+        update sys_menu
+        <set>
+            <if test="menuName != null and menuName != ''">menu_name = #{menuName},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="orderNum != null">order_num = #{orderNum},</if>
+            <if test="path != null and path != ''">path = #{path},</if>
+            <if test="component != null and component != ''">component = #{component},</if>
+            <if test="query != null and query != ''">query = #{query},</if>
+            <if test="isFrame != null and isFrame != ''">is_frame = #{isFrame},</if>
+            <if test="isCache != null and isCache != ''">is_cache = #{isCache},</if>
+            <if test="menuType != null and menuType != ''">menu_type = #{menuType},</if>
+            <if test="visible != null and visible != ''">visible = #{visible},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="perms != null and perms != ''">perms = #{perms},</if>
+            <if test="icon != null and icon != ''">icon = #{icon},</if>
+            <if test="apiUrl != null and apiUrl != ''">api_url = #{apiUrl},</if>
+            <if test="apiMethod != null and apiMethod != ''">api_method = #{apiMethod},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+        </set>
+        where menu_id = #{menuId}
+        and del_flag = '0'
+    </update>
+
+    <!-- 根据ID删除权限（菜单）：逻辑删除，把 del_flag 置为 1，记录仍然留在库里 -->
+    <delete id="deleteById">
+        update sys_menu set del_flag = '1'
+        where menu_id = #{id}
+        and del_flag = '0'
+    </delete>
+
+    <!-- 多条件查询权限（菜单）：条件为空则该字段不参与过滤；始终只查未删除的数据 -->
+    <select id="selectByCondition" parameterType="com.elevn.mes.sys.entity.SysMenu" resultMap="SysMenuResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_menu
+        <where>
+            del_flag = '0'
+            <if test="menuId != null">and menu_id = #{menuId}</if>
+            <if test="menuName != null and menuName != ''">and menu_name like concat('%', #{menuName}, '%')</if>
+            <if test="parentId != null">and parent_id = #{parentId}</if>
+            <if test="menuType != null and menuType != ''">and menu_type = #{menuType}</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+            <if test="visible != null and visible != ''">and visible = #{visible}</if>
+            <if test="perms != null and perms != ''">and perms like concat('%', #{perms}, '%')</if>
+        </where>
+        order by order_num asc
+    </select>
+
+    <!-- 根据用户ID查询菜单：用户 -> 用户角色 -> 角色权限 -> 权限 -->
+    <select id="selectMenusByUserId" resultMap="SysMenuResultMap">
+        select distinct
+        <include refid="Join_Column_List"/>
+        from sys_menu m
+        inner join sys_role_menu rm on rm.menu_id = m.menu_id and rm.del_flag = '0'
+        inner join sys_user_role ur on ur.role_id = rm.role_id and ur.del_flag = '0'
+        <where>
+            m.del_flag = '0'
+            and m.menu_type in ('M', 'C')
+            <if test="userId != null">and ur.user_id = #{userId}</if>
+        </where>
+        order by m.parent_id asc, m.order_num asc
+    </select>
+    <select id="selectById" resultMap="SysMenuResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_menu
+        del_flag = '0'
+        and menu_id = #{menuId}
+    </select>
+
+</mapper>

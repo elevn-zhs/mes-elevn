@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 装箱单明细行 Mapper XML：行上的快照列由 Service 从库存行拷贝，这里只负责存取 -->
+<mapper namespace="com.elevn.mes.wm.mapper.WmPackageLineMapper">
+
+    <sql id="Base_Column_List">
+        line_id, package_id, material_stock_id,
+        item_id, item_code, item_name, specification, unit_of_measure, quantity,
+        workorder_id, workorder_code, batch_code,
+        warehouse_id, warehouse_code, warehouse_name,
+        location_id, location_code, location_name,
+        area_id, area_code, area_name, expire_date,
+        del_flag, remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <select id="selectByPackageId" resultType="com.elevn.mes.wm.entity.WmPackageLine">
+        select <include refid="Base_Column_List"/>
+        from wm_package_line
+        where package_id = #{packageId} and del_flag = '0'
+        order by line_id
+    </select>
+
+    <select id="selectById" resultType="com.elevn.mes.wm.entity.WmPackageLine">
+        select <include refid="Base_Column_List"/>
+        from wm_package_line
+        where line_id = #{lineId} and del_flag = '0'
+    </select>
+
+    <select id="countByPackageId" resultType="int">
+        select count(*) from wm_package_line
+        where package_id = #{packageId} and del_flag = '0'
+    </select>
+
+    <!-- 装箱数量是实物移动的记账，同一库存行可以分多次装（今天装 5 个明天装 3 个），
+         校验"累计装箱 ≤ 库存现存"前得先知道已经装了多少 -->
+    <select id="sumQuantityByStockId" resultType="java.math.BigDecimal">
+        select ifnull(sum(quantity), 0) from wm_package_line
+        where material_stock_id = #{materialStockId} and del_flag = '0'
+    </select>
+
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmPackageLine"
+            useGeneratedKeys="true" keyProperty="lineId">
+        insert into wm_package_line
+            (package_id, material_stock_id,
+             item_id, item_code, item_name, specification, unit_of_measure, quantity,
+             workorder_id, workorder_code, batch_code,
+             warehouse_id, warehouse_code, warehouse_name,
+             location_id, location_code, location_name,
+             area_id, area_code, area_name, expire_date,
+             del_flag, remark, create_by, create_time, update_by, update_time)
+        values
+            (#{packageId}, #{materialStockId},
+             #{itemId}, #{itemCode}, #{itemName}, #{specification}, #{unitOfMeasure}, #{quantity},
+             #{workorderId}, #{workorderCode}, #{batchCode},
+             #{warehouseId}, #{warehouseCode}, #{warehouseName},
+             #{locationId}, #{locationCode}, #{locationName},
+             #{areaId}, #{areaCode}, #{areaName}, #{expireDate},
+             '0', #{remark}, #{createBy}, now(), #{updateBy}, now())
+    </insert>
+
+    <!-- 只允许改数量和备注：物料/批次/库位这些快照列是"装箱那一刻的事实"，
+         改了就等于涂改追溯记录。想换货？删了这行重新选库存行 -->
+    <update id="updateById" parameterType="com.elevn.mes.wm.entity.WmPackageLine">
+        update wm_package_line
+        set quantity   = #{quantity},
+            remark     = #{remark},
+            update_by  = #{updateBy},
+            update_time = now()
+        where line_id = #{lineId}
+          and del_flag = '0'
+    </update>
+
+    <update id="deleteById">
+        update wm_package_line
+        set del_flag = '1', update_time = now()
+        where line_id = #{lineId}
+    </update>
+
+    <update id="deleteByPackageId">
+        update wm_package_line
+        set del_flag = '1', update_time = now()
+        where package_id = #{packageId}
+    </update>
+
+</mapper>

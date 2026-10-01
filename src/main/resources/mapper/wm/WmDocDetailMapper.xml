@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    出入库单据明细 / 库位落位记录（wm_doc_detail）
+
+
+    【这张表是怎么来的】
+      行（wm_doc_line）只说要出 100 件；真动库存时必须写清楚
+      "从 A-01-01 扣 60、从 A-01-02 扣 40"。这些笔数就是本表的行。
+
+    【数量一律正数】
+      方向由单据头的 io_flag 决定。明细里带正负号，看账的人要盯着符号猜半天。
+
+    【deleteByDocId 是物理删除】
+      本表是过账过程中的落位产物，不是原始凭证；过账本身已经有
+      wm_material_stock + wm_transaction 两处留痕，这里删掉不影响追溯。
+      删了重写是为了让"重复点击过账"这种情况不会留下双份落位。
+-->
+<mapper namespace="com.elevn.mes.wm.mapper.WmDocDetailMapper">
+
+    <!-- wm_doc_detail 表字段与实体属性的映射 -->
+    <resultMap id="WmDocDetailResultMap" type="com.elevn.mes.wm.entity.WmDocDetail">
+        <id column="detail_id" property="detailId"/>
+        <result column="doc_id" property="docId"/>
+        <result column="doc_type" property="docType"/>
+        <result column="line_id" property="lineId"/>
+        <result column="material_stock_id" property="materialStockId"/>
+        <result column="item_id" property="itemId"/>
+        <result column="item_code" property="itemCode"/>
+        <result column="item_name" property="itemName"/>
+        <result column="specification" property="specification"/>
+        <result column="unit_of_measure" property="unitOfMeasure"/>
+        <result column="unit_name" property="unitName"/>
+        <result column="quantity" property="quantity"/>
+        <result column="batch_id" property="batchId"/>
+        <result column="batch_code" property="batchCode"/>
+        <result column="warehouse_id" property="warehouseId"/>
+        <result column="warehouse_code" property="warehouseCode"/>
+        <result column="warehouse_name" property="warehouseName"/>
+        <result column="location_id" property="locationId"/>
+        <result column="location_code" property="locationCode"/>
+        <result column="location_name" property="locationName"/>
+        <result column="area_id" property="areaId"/>
+        <result column="area_code" property="areaCode"/>
+        <result column="area_name" property="areaName"/>
+        <result column="del_flag" property="delFlag"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 公共字段列表 -->
+    <sql id="Base_Column_List">
+        detail_id, doc_id, doc_type, line_id, material_stock_id,
+        item_id, item_code, item_name, specification, unit_of_measure, unit_name,
+        quantity, batch_id, batch_code,
+        warehouse_id, warehouse_code, warehouse_name,
+        location_id, location_code, location_name,
+        area_id, area_code, area_name,
+        del_flag, remark, create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 新增落位明细（主键回填到 detailId） -->
+    <insert id="insert" parameterType="com.elevn.mes.wm.entity.WmDocDetail"
+            useGeneratedKeys="true" keyProperty="detailId">
+        insert into wm_doc_detail
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="docId != null">doc_id,</if>
+            <if test="docType != null and docType != ''">doc_type,</if>
+            <if test="lineId != null">line_id,</if>
+            <if test="materialStockId != null">material_stock_id,</if>
+            <if test="itemId != null">item_id,</if>
+            <if test="itemCode != null and itemCode != ''">item_code,</if>
+            <if test="itemName != null and itemName != ''">item_name,</if>
+            <if test="specification != null and specification != ''">specification,</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">unit_of_measure,</if>
+            <if test="unitName != null and unitName != ''">unit_name,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="batchId != null">batch_id,</if>
+            <if test="batchCode != null and batchCode != ''">batch_code,</if>
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="warehouseCode != null and warehouseCode != ''">warehouse_code,</if>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="locationCode != null and locationCode != ''">location_code,</if>
+            <if test="locationName != null and locationName != ''">location_name,</if>
+            <if test="areaId != null">area_id,</if>
+            <if test="areaCode != null and areaCode != ''">area_code,</if>
+            <if test="areaName != null and areaName != ''">area_name,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="docId != null">#{docId},</if>
+            <if test="docType != null and docType != ''">#{docType},</if>
+            <if test="lineId != null">#{lineId},</if>
+            <if test="materialStockId != null">#{materialStockId},</if>
+            <if test="itemId != null">#{itemId},</if>
+            <if test="itemCode != null and itemCode != ''">#{itemCode},</if>
+            <if test="itemName != null and itemName != ''">#{itemName},</if>
+            <if test="specification != null and specification != ''">#{specification},</if>
+            <if test="unitOfMeasure != null and unitOfMeasure != ''">#{unitOfMeasure},</if>
+            <if test="unitName != null and unitName != ''">#{unitName},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="batchId != null">#{batchId},</if>
+            <if test="batchCode != null and batchCode != ''">#{batchCode},</if>
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="warehouseCode != null and warehouseCode != ''">#{warehouseCode},</if>
+            <if test="warehouseName != null and warehouseName != ''">#{warehouseName},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="locationCode != null and locationCode != ''">#{locationCode},</if>
+            <if test="locationName != null and locationName != ''">#{locationName},</if>
+            <if test="areaId != null">#{areaId},</if>
+            <if test="areaCode != null and areaCode != ''">#{areaCode},</if>
+            <if test="areaName != null and areaName != ''">#{areaName},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <!-- 回填库存记录ID（入库时库存行是新建的，插完才知道 ID） -->
+    <update id="updateMaterialStockId" parameterType="com.elevn.mes.wm.entity.WmDocDetail">
+        update wm_doc_detail
+        set material_stock_id = #{materialStockId}
+        where detail_id = #{detailId}
+    </update>
+
+    <!-- 按单据ID物理删除所有落位明细（过账前先清，保证幂等） -->
+    <delete id="deleteByDocId">
+        delete from wm_doc_detail where doc_id = #{docId}
+    </delete>
+
+    <!-- 按单据ID查询落位明细 -->
+    <select id="selectByDocId" resultMap="WmDocDetailResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from wm_doc_detail
+        <where>
+            doc_id = #{docId}
+        </where>
+        order by detail_id asc
+    </select>
+
+</mapper>
